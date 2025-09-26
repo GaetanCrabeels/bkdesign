@@ -1,31 +1,33 @@
+// ProductCard.tsx
 import { Product } from "../types/product";
 
-interface ProductCardProps {
+export interface ProductCardProps {
   product: Product;
-  onOpen: () => void;
-  onAdd: (p: Product, qty?: number, color?: string) => void;
+  onAdd?: (p: Product) => void;
+  onOpen?: () => void; // ✅ NOUVELLE PROP
 }
 
-export function ProductCard({ product, onOpen, onAdd }: ProductCardProps) {
+export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
   return (
-    <div className="bg-[#ecd187] rounded-lg shadow-card p-4 flex flex-col mt-4 mb-4">
-      <img
-        src={product.image}
-        alt={product.title}
-        className="h-48 w-full object-cover rounded mb-4"
-      />
-      <h4 className="text-xl text-[#9f6a23] mb-1">{product.title}</h4>
-      <p className="text-body text-accent text-[#9f6a23] text-base">{product.description.slice(0.80)}...</p>
-      <div className="flex items-center justify-between mt-auto">
-        <span className="font-bold text-[#9f6a23] ml-2 text-lg">€{product.price}</span>
+    <div
+      className="p-4 bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition cursor-pointer"
+      onClick={onOpen} // ✅ On déclenche onOpen quand on clique sur la carte
+    >
+      <img src={product.image_url} alt={product.title} className="w-full h-48 object-cover rounded-md" />
+      <h3 className="text-base  mt-4" style={{ fontFamily: "Barlow" }}>{product.title}
+      </h3>
+      <p className="text-sm text-[#d6b98d]">{product.price} €</p>
+      {onAdd && (
         <button
-          onClick={() => onAdd(product,1,product.colors[0])}
-          className=" bg-[#9f6a23] text-white px-3 py-1 rounded hover:bg-accent transition-colors"
+          onClick={(e) => {
+            e.stopPropagation(); // ✅ Évite d'ouvrir la modal si on clique sur le bouton
+            onAdd(product);
+          }}
+          className="mt-2 px-4 py-2 bg-[#ffc272] text-[#111213] rounded hover:bg-[#e6aa50]"
         >
-          + Ajouter
+          Ajouter au panier
         </button>
-      </div>
+      )}
     </div>
-
   );
 }
