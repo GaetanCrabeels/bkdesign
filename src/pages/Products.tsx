@@ -1,16 +1,23 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState, useEffect, useMemo, lazy } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Product } from "../types/product";
+import { Product, CartItem } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductCard } from "../components/ProductCard";
-import { ProductModal } from "../components/ProductModal";
+
+const ProductModal = lazy(() => import("../components/ProductModal"));
+const CartModal = lazy(() => import("../components/CartModal"));
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
+import { Footer } from "../components/footer";
 
 export default function Produits() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // ✅ Panier
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   // ✅ États pour les filtres
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -34,20 +41,17 @@ export default function Produits() {
     else setSelectedSubcategory(null);
   }, [searchParams, params]);
 
-  // ✅ Synchroniser l'état avec l'URL quand l'utilisateur change un filtre
+  // ✅ Synchroniser l'état avec l'URL
   function handleCategoryChange(cat: string | null) {
     setSelectedCategory(cat);
-    navigate(
-      cat
-        ? `/produits?category=${encodeURIComponent(cat)}${selectedSubcategory ? `&subcategory=${encodeURIComponent(selectedSubcategory)}` : ""}`
-        : "/produits"
-    );
+    navigate(cat ? `/produits?category=${encodeURIComponent(cat)}` : "/produits");
   }
 
   function handleSubcategoryChange(subcat: string | null) {
     setSelectedSubcategory(subcat);
     navigate(
-      `/produits?${selectedCategory ? `category=${encodeURIComponent(selectedCategory)}&` : ""}${subcat ? `subcategory=${encodeURIComponent(subcat)}` : ""
+      `/produits?${selectedCategory ? `category=${encodeURIComponent(selectedCategory)}&` : ""}${
+        subcat ? `subcategory=${encodeURIComponent(subcat)}` : ""
       }`
     );
   }
@@ -64,7 +68,20 @@ export default function Produits() {
     fetchProducts();
   }, []);
 
-  // ✅ Extraire toutes les catégories et sous-catégories uniques
+  // ✅ Panier — Ajout d’un produit
+  function addToCart(product: Product, qty = 1) {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.id === product.id);
+      if (existing) {
+        return prev.map((i) =>
+          i.id === product.id ? { ...i, qty: i.qty + qty } : i
+        );
+      }
+      return [...prev, { id: product.id, title: product.title, price: product.price, qty }];
+    });
+  }
+
+  // ✅ Extraire catégories et sous-catégories
   const categories = useMemo(() => {
     return Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
   }, [products]);
@@ -97,8 +114,8 @@ export default function Produits() {
   return (
     <div className="min-h-screen bg-[#111213] text-[#ffc272]">
       <Header
-        cartCount={0}
-        onOpenCart={() => console.log("Ouvrir panier à implémenter")}
+        cartCount={cart.reduce((s, i) => s + i.qty, 0)}
+        onOpenCart={() => setIsCartOpen(true)}
         query={query}
         setQuery={setQuery}
       />
@@ -107,15 +124,15 @@ export default function Produits() {
         <h1 className="text-7xl text-center mb-4">Tous nos produits</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* --- COLONNE GAUCHE : FILTRES --- */}
+          {/* --- FILTRES --- */}
           <aside className="bg-[#1b1c1d] rounded-2xl p-4 space-y-6">
-            {/* ✅ Catégories */}
             <div>
               <h3 className="text-6xl mb-5 text-center">Catégories</h3>
               <div className="flex flex-col space-y-2">
                 <button
-                  className={`text-left px-3 py-2 rounded-xl ${!selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
-                    }`}
+                  className={`text-left px-3 py-2 rounded-xl ${
+                    !selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
+                  }`}
                   onClick={() => handleCategoryChange(null)}
                 >
                   Toutes
@@ -123,10 +140,11 @@ export default function Produits() {
                 {categories.map((cat) => (
                   <button
                     key={cat}
-                    className={`text-left px-3 py-2 rounded-xl ${selectedCategory === cat
+                    className={`text-left px-3 py-2 rounded-xl ${
+                      selectedCategory === cat
                         ? "bg-[#ffc272] text-[#111213]"
                         : "hover:bg-[#2a2b2c]"
-                      }`}
+                    }`}
                     onClick={() => handleCategoryChange(cat)}
                   >
                     {cat}
@@ -141,8 +159,11 @@ export default function Produits() {
                 <h3 className="text-4xl mb-5 text-center">Sous-catégories</h3>
                 <div className="flex flex-col space-y-2">
                   <button
-                    className={`text-left px-3 py-2 rounded-xl ${!selectedSubcategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
-                      }`}
+                    className={`text-left px-3 py-2 rounded-xl ${
+                      !selectedSubcategory
+                        ? "bg-[#ffc272] text-[#111213]"
+                        : "hover:bg-[#2a2b2c]"
+                    }`}
                     onClick={() => handleSubcategoryChange(null)}
                   >
                     Toutes
@@ -150,10 +171,11 @@ export default function Produits() {
                   {subcategories.map((subcat) => (
                     <button
                       key={subcat}
-                      className={`text-left px-3 py-2 rounded-xl ${selectedSubcategory === subcat
+                      className={`text-left px-3 py-2 rounded-xl ${
+                        selectedSubcategory === subcat
                           ? "bg-[#ffc272] text-[#111213]"
                           : "hover:bg-[#2a2b2c]"
-                        }`}
+                      }`}
                       onClick={() => handleSubcategoryChange(subcat)}
                     >
                       {subcat}
@@ -180,7 +202,7 @@ export default function Produits() {
             </div>
           </aside>
 
-          {/* --- COLONNE DROITE : PRODUITS --- */}
+          {/* --- PRODUITS --- */}
           <main className="md:col-span-3">
             {loading ? (
               <p className="text-center">Chargement...</p>
@@ -189,14 +211,15 @@ export default function Produits() {
                 <p className="text-center text-[#ffffff] text-xl font-semibold">
                   Aucun produit trouvé.
                 </p>
-              </div>) : (
+              </div>
+            ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((p) => (
                   <ProductCard
                     key={p.id}
                     product={p}
                     onOpen={() => setSelectedProduct(p)}
-                    onAdd={() => console.log("Ajout panier")}
+                    onAdd={() => addToCart(p)}
                   />
                 ))}
               </div>
@@ -208,10 +231,17 @@ export default function Produits() {
           <ProductModal
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
-            onAdd={() => console.log("Ajout panier")}
+            onAdd={(p) => addToCart(p)}
           />
         )}
       </div>
+
+      {/* ✅ Modal panier */}
+      {isCartOpen && (
+        <CartModal items={cart} onClose={() => setIsCartOpen(false)} />
+      )}
+
+      <Footer />
     </div>
   );
 }

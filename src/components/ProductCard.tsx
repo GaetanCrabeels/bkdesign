@@ -1,29 +1,40 @@
-// ProductCard.tsx
 import { Product } from "../types/product";
 
 export interface ProductCardProps {
   product: Product;
   onAdd?: (p: Product) => void;
-  onOpen?: () => void; // ✅ NOUVELLE PROP
+  onOpen?: () => void;
 }
 
 export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
   return (
     <div
-      className="p-4 bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition cursor-pointer"
-      onClick={onOpen} // ✅ On déclenche onOpen quand on clique sur la carte
+      className="p-4 bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition cursor-pointer flex flex-col"
+      onClick={onOpen}
     >
-      <img src={product.image_url} alt={product.title} className="w-full h-48 object-cover rounded-md" />
-      <h3 className="text-base  mt-4" style={{ fontFamily: "Barlow" }}>{product.title}
-      </h3>
+      {/* Conteneur avec aspect-ratio pour image responsive */}
+      <div className="relative w-full">
+  <img
+    src={product.image_url}
+    alt={product.title}
+    loading="lazy"
+    decoding="async"
+    className="w-full object-cover rounded-md
+               h-32 sm:h-40 md:h-44 lg:h-48"
+  />
+</div>
+
+      {/* Infos produit */}
+      <h3 className="text-base mt-4 font-medium line-clamp-1">{product.title}</h3>
       <p className="text-sm text-[#d6b98d]">{product.price} €</p>
+
       {onAdd && (
         <button
           onClick={(e) => {
-            e.stopPropagation(); // ✅ Évite d'ouvrir la modal si on clique sur le bouton
+            e.stopPropagation();
             onAdd(product);
           }}
-          className="mt-2 px-4 py-2 bg-[#ffc272] text-[#111213] rounded hover:bg-[#e6aa50]"
+          className="mt-2 px-4 py-2 bg-[#ffc272] text-[#111213] rounded hover:bg-[#e6aa50] transition-colors"
         >
           Ajouter au panier
         </button>

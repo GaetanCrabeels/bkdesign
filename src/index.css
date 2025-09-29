@@ -4,8 +4,10 @@
 @tailwind components;
 @tailwind utilities;
 
-
-html, body, p {
+footer p{
+  @apply text-white text-justify md:text-center text-sm leading-relaxed mt-5
+}
+body, p {
   font-family: 'Barlow', sans-serif;
   @apply text-textPrimary ;
 }
@@ -14,10 +16,3 @@ h1, h2, h3{
   font-family: 'Great Vibes', sans-serif;
 }
 
-a {
-  @apply text-primary hover:text-primaryDark transition-colors;
-}
-
-button {
-  @apply px-4 py-2 rounded bg-primary text-white font-medium hover:bg-primaryDark transition;
-}
