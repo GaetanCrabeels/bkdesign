@@ -3,7 +3,7 @@ import { Product, CartItem } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductModal } from "../components/ProductModal";
 import { AutoCarousel } from "../components/Carousel";
-import { ProductCarousel } from "../components/ProductCarousel"; // ✅ On importe le carrousel
+import { ProductCarousel } from "../components/ProductCarousel"; 
 import { supabase } from "../lib/supabaseClient";
 
 export default function Home() {
@@ -63,9 +63,9 @@ export default function Home() {
     });
   }
 
-  // ✅ Liste des sous-catégories uniques (triées)
-  const subcategories = Array.from(
-    new Set(filtered.map((p) => p.subcategory))
+  // ✅ Liste des catégories uniques (triées)
+  const categories = Array.from(
+    new Set(filtered.map((p) => p.category))
   ).sort();
 
   return (
@@ -109,15 +109,15 @@ export default function Home() {
           {loading && <p className="text-center">Chargement des produits...</p>}
 
           {!loading &&
-            subcategories.map((sub) => {
-              const productsInSub = filtered.filter((p) => p.subcategory === sub);
-              if (productsInSub.length === 0) return null;
+            categories.map((cat) => {
+              const productsInCat = filtered.filter((p) => p.category === cat);
+              if (productsInCat.length === 0) return null;
 
               return (
-                <div key={sub} className="space-y-6">
-                  <h2 className="text-6xl text-center">{sub}</h2>
+                <div key={cat} className="space-y-6">
+                  <h2 className="text-6xl text-center">{cat}</h2>
                   <ProductCarousel
-                    products={productsInSub}
+                    products={productsInCat}
                     onOpen={(p) => setSelectedProduct(p)}
                     onAdd={addToCart}
                   />

@@ -20,9 +20,17 @@ export function Header({ cartCount, onOpenCart, query, setQuery }: HeaderProps) 
               alt="BKDesign Logo"
               className="h-16 md:h-20 w-auto object-contain mr-10"
             />
-            <div className="text-4xl  tracking-tight text-[#ffc272] " style={{ fontFamily: "Great Vibes" }}>
-              e-Shop
-            </div>
+
+
+            <Link to="/">
+              <a
+                className="text-4xl tracking-tight text-[#ffc272] hover:text-white transition-colors"
+                style={{ fontFamily: "Great Vibes" }}
+              >
+                e-Shop
+              </a>
+            </Link>
+
           </div>
 
           {/* Navigation */}
@@ -33,7 +41,7 @@ export function Header({ cartCount, onOpenCart, query, setQuery }: HeaderProps) 
             <Link to="/produits?category=Fleurs&" className="hover:text-white transition-colors">
               Fleurs artificielles
             </Link>
-            <Link to="/produits?category=Cadre_Plexi&" className="hover:text-white transition-colors">
+            <Link to="/produits?category=Cadre Plexi&" className="hover:text-white transition-colors">
               Cadre plexi personnalisé
             </Link>
           </nav>
