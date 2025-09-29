@@ -4,6 +4,7 @@ import { Product } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductCard } from "../components/ProductCard";
 import { ProductModal } from "../components/ProductModal";
+import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 
 export default function Produits() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -11,10 +12,47 @@ export default function Produits() {
   const [query, setQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // 🆕 États pour les filtres
+  // ✅ États pour les filtres
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
 
+  // ✅ Hooks router
+  const [searchParams] = useSearchParams();
+  const params = useParams();
+  const navigate = useNavigate();
+
+  // ✅ Lire catégorie et sous-catégorie depuis l'URL
+  useEffect(() => {
+    const catFromQuery = searchParams.get("category");
+    const subFromQuery = searchParams.get("subcategory");
+    const subFromPath = params.subcategory;
+
+    setSelectedCategory(catFromQuery ?? null);
+    if (subFromQuery) setSelectedSubcategory(subFromQuery);
+    else if (subFromPath) setSelectedSubcategory(subFromPath);
+    else setSelectedSubcategory(null);
+  }, [searchParams, params]);
+
+  // ✅ Synchroniser l'état avec l'URL quand l'utilisateur change un filtre
+  function handleCategoryChange(cat: string | null) {
+    setSelectedCategory(cat);
+    navigate(
+      cat
+        ? `/produits?category=${encodeURIComponent(cat)}${selectedSubcategory ? `&subcategory=${encodeURIComponent(selectedSubcategory)}` : ""}`
+        : "/produits"
+    );
+  }
+
+  function handleSubcategoryChange(subcat: string | null) {
+    setSelectedSubcategory(subcat);
+    navigate(
+      `/produits?${selectedCategory ? `category=${encodeURIComponent(selectedCategory)}&` : ""}${subcat ? `subcategory=${encodeURIComponent(subcat)}` : ""
+      }`
+    );
+  }
+
+  // ✅ Fetch produits
   useEffect(() => {
     async function fetchProducts() {
       setLoading(true);
@@ -26,32 +64,35 @@ export default function Produits() {
     fetchProducts();
   }, []);
 
-  // 🆕 Récupérer toutes les sous-catégories uniques
+  // ✅ Extraire toutes les catégories et sous-catégories uniques
+  const categories = useMemo(() => {
+    return Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
+  }, [products]);
+
   const subcategories = useMemo(() => {
-  return Array.from(
-    new Set(
-      products
-        .map((p) => p.subcategory)
-        .filter((s): s is Exclude<typeof s, undefined> => s !== undefined)
-    )
-  );
-}, [products]);
+    return Array.from(
+      new Set(
+        products
+          .filter((p) => !selectedCategory || p.category === selectedCategory)
+          .map((p) => p.subcategory)
+          .filter((s): s is Exclude<typeof s, undefined> => s !== undefined)
+      )
+    );
+  }, [products, selectedCategory]);
 
-
+  // ✅ Filtrage
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
     return products.filter((p) => {
       const matchesSearch =
         p.title.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q);
-      const matchesSubcategory = selectedSubcategory
-        ? p.subcategory === selectedSubcategory
-        : true;
-      const matchesPrice =
-        p.price >= priceRange[0] && p.price <= priceRange[1];
-      return matchesSearch && matchesSubcategory && matchesPrice;
+      const matchesCategory = selectedCategory ? p.category === selectedCategory : true;
+      const matchesSubcategory = selectedSubcategory ? p.subcategory === selectedSubcategory : true;
+      const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+      return matchesSearch && matchesCategory && matchesSubcategory && matchesPrice;
     });
-  }, [query, products, selectedSubcategory, priceRange]);
+  }, [query, products, selectedCategory, selectedSubcategory, priceRange]);
 
   return (
     <div className="min-h-screen bg-[#111213] text-[#ffc272]">
@@ -68,34 +109,59 @@ export default function Produits() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* --- COLONNE GAUCHE : FILTRES --- */}
           <aside className="bg-[#1b1c1d] rounded-2xl p-4 space-y-6">
-
-            {/* Sous-catégories */}
+            {/* ✅ Catégories */}
             <div>
               <h3 className="text-6xl mb-5 text-center">Catégories</h3>
               <div className="flex flex-col space-y-2">
                 <button
-                  className={`text-left px-3 py-2 rounded-xl ${
-                    !selectedSubcategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
-                  }`}
-                  onClick={() => setSelectedSubcategory(null)}
+                  className={`text-left px-3 py-2 rounded-xl ${!selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
+                    }`}
+                  onClick={() => handleCategoryChange(null)}
                 >
                   Toutes
                 </button>
-                {subcategories.map((subcat) => (
+                {categories.map((cat) => (
                   <button
-                    key={subcat}
-                    className={`text-left px-3 py-2 rounded-xl ${
-                      selectedSubcategory === subcat
+                    key={cat}
+                    className={`text-left px-3 py-2 rounded-xl ${selectedCategory === cat
                         ? "bg-[#ffc272] text-[#111213]"
                         : "hover:bg-[#2a2b2c]"
-                    }`}
-                    onClick={() => setSelectedSubcategory(subcat)}
+                      }`}
+                    onClick={() => handleCategoryChange(cat)}
                   >
-                    {subcat}
+                    {cat}
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* ✅ Sous-catégories */}
+            {selectedCategory && subcategories.length > 0 && (
+              <div>
+                <h3 className="text-4xl mb-5 text-center">Sous-catégories</h3>
+                <div className="flex flex-col space-y-2">
+                  <button
+                    className={`text-left px-3 py-2 rounded-xl ${!selectedSubcategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
+                      }`}
+                    onClick={() => handleSubcategoryChange(null)}
+                  >
+                    Toutes
+                  </button>
+                  {subcategories.map((subcat) => (
+                    <button
+                      key={subcat}
+                      className={`text-left px-3 py-2 rounded-xl ${selectedSubcategory === subcat
+                          ? "bg-[#ffc272] text-[#111213]"
+                          : "hover:bg-[#2a2b2c]"
+                        }`}
+                      onClick={() => handleSubcategoryChange(subcat)}
+                    >
+                      {subcat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Prix */}
             <div>
@@ -108,7 +174,9 @@ export default function Produits() {
                 onChange={(e) => setPriceRange([0, Number(e.target.value)])}
                 className="w-full accent-[#ffc272]"
               />
-              <p className="text-sm text-[#ffc272] text-center">Jusqu'à {priceRange[1]} €</p>
+              <p className="text-sm text-[#ffc272] text-center">
+                Jusqu'à {priceRange[1]} €
+              </p>
             </div>
           </aside>
 
@@ -117,8 +185,11 @@ export default function Produits() {
             {loading ? (
               <p className="text-center">Chargement...</p>
             ) : filtered.length === 0 ? (
-              <p className="text-center">Aucun produit trouvé.</p>
-            ) : (
+              <div className="flex items-center justify-center h-[50vh]">
+                <p className="text-center text-[#ffffff] text-xl font-semibold">
+                  Aucun produit trouvé.
+                </p>
+              </div>) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filtered.map((p) => (
                   <ProductCard

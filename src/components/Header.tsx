@@ -1,4 +1,4 @@
-import React from "react";
+import { Link } from "react-router-dom";
 
 interface HeaderProps {
   cartCount: number;
@@ -27,17 +27,16 @@ export function Header({ cartCount, onOpenCart, query, setQuery }: HeaderProps) 
 
           {/* Navigation */}
           <nav className="flex gap-8 md:gap-16 text-lg text-[#ffc272] whitespace-nowrap">
-            <a href="/produits/décoration" className="hover:text-white transition-colors">
+            <Link to="/produits?category=Décoration&" className="hover:text-white transition-colors">
               Décoration
-            </a>
-            <a href="/produits/fleurs" className="hover:text-white transition-colors">
+            </Link>
+            <Link to="/produits?category=Fleurs&" className="hover:text-white transition-colors">
               Fleurs artificielles
-            </a>
-            <a href="/produits/cadre-plexi" className="hover:text-white transition-colors">
+            </Link>
+            <Link to="/produits?category=Cadre_Plexi&" className="hover:text-white transition-colors">
               Cadre plexi personnalisé
-            </a>
+            </Link>
           </nav>
-
           {/* Recherche + panier */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <button
