@@ -13,8 +13,15 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-[#ecddc9] text-[#111213] rounded-lg shadow-lg max-w-3xl w-full p-6 z-10">
-        <div className="flex flex-col md:flex-row gap-6 text-justify items-center">
+      <div className="relative bg-[#ecddc9] text-[#111213] rounded-lg shadow-lg  p-8 pt-4 z-10  max-w-[90vw]">
+        <button
+      onClick={onClose}
+      className="absolute top-0 right-1 text-[#000000] hover:text-white text-2xl"
+      aria-label="Fermer"
+    >
+      ✕
+    </button>
+        <div className="flex flex-col md:flex-row gap-6 text-justify items-center ">
           <img
             src={product.image_url}
             alt={product.title}
@@ -22,7 +29,7 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
             height={256}
             loading="eager"
             decoding="async"
-            className="rounded object-cover w-full md:w-64 h-64"
+            className="rounded object-cover w-full md:w-64 h-64 "
           />
 
           <div className="flex flex-col">
@@ -59,7 +66,7 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
               </button>
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-[#ca7322] rounded hover:bg-[#ffc272] transition-colors"
+                className="px-4 py-2 bg-[#ca7322] text-white hover:bg-[#ffc272] transition-colors"
               >
                 Fermer
               </button>

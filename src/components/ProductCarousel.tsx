@@ -22,7 +22,7 @@ export default function ProductCarousel({ products, onOpen, onAdd }: ProductCaro
 
   return (
     <section className="relative w-full">
-      <div className="relative  md:w-full md:max-w-7xl mx-auto px-4 sm:px-1 w-96">
+      <div className="max-w-7xl mx-auto  px-4 sm:px-6 w-[95vw] lg:px-8">
         <Swiper
           modules={[Navigation]}
           spaceBetween={16}

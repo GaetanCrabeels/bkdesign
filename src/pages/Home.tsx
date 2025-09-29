@@ -82,40 +82,49 @@ export default function Home() {
         onOpenCart={() => setCartOpen(true)}
         query={query}
         setQuery={setQuery}
+        categories={categories} // ✅ On passe les catégories dynamiques ici
       />
 
       <div className="max-w-7xl mx-auto md:border-x-4 border-[#2a2b2c] px-4 sm:px-6 lg:px-8">
         <section className="w-full flex flex-col items-center text-center py-10 sm:py-12">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-balance text-[#ffc272] drop-shadow-lg mb-8 sm:mb-10">
+          {/* ✅ LCP principal → h1 */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-[#ffc272] drop-shadow-lg mb-6 sm:mb-8">
             Bienvenue dans notre e-Shop
           </h1>
 
-          <p className="max-w-4xl text-sm sm:text-base md:text-lg leading-6 sm:leading-7 md:leading-9 text-[#d6b98d] mb-6 sm:mb-8 mx-4 text-justify text-balance">
+          {/* ✅ Paragraphe découpé en plusieurs parties */}
+          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-justify">
             Nous proposons une sélection d’objets décoratifs, de meubles élégants et
             d’accessoires issus de marques prestigieuses telles que{" "}
             <span className="font-semibold">Richmond Interiors</span>,{" "}
             <span className="font-semibold">Countryfield</span> et{" "}
-            <span className="font-semibold">Initials</span>. Que ce soit avec des vases,
-            miroirs, bougies lumineuses ou parfums d’intérieur, chaque pièce de notre
-            collection est pensée pour apporter charme et personnalité à vos espaces.
-            <br />
-            <br />
+            <span className="font-semibold">Initials</span>.
+          </p>
+
+          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-justify">
+            Que ce soit avec des vases, miroirs, bougies lumineuses ou parfums d’intérieur,
+            chaque pièce de notre collection est pensée pour apporter charme et personnalité
+            à vos espaces.
+          </p>
+
+          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
             Nous offrons également des services de conseils en décoration et stylisme
             d’intérieur pour vous accompagner dans vos projets.
-            <br />
-            <br />
+          </p>
+
+          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
             Venez découvrir notre univers et laissez-vous inspirer par{" "}
             <span className="font-semibold">BK Design</span>, où chaque détail fait la
             différence.
           </p>
 
-          {/* ✅ Aspect ratio réservé pour éviter CLS */}
-          <div className="w-full max-w-5xl aspect-[16/9] overflow-hidden rounded-xl">
+          {/* ✅ Aspect ratio réservé + min-h pour éviter CLS */}
+          <div className="w-full max-w-5xl min-h-[300px] overflow-hidden rounded-xl">
             <AutoCarousel />
           </div>
 
-          <hr className="border-y-2 border-[#2a2b2c] max-w-screen-lg mx-auto mt-6 mb-10" />
 
+          {/* ✅ Liste produits par catégories */}
           <main className="px-4 py-8 sm:py-16 space-y-12">
             {loading && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

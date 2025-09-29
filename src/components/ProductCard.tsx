@@ -14,15 +14,15 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
     >
       {/* Conteneur avec aspect-ratio pour image responsive */}
       <div className="relative w-full">
-  <img
-    src={product.image_url}
-    alt={product.title}
-    loading="lazy"
-    decoding="async"
-    className="w-full object-cover rounded-md
+        <img
+          src={product.image_url}
+          alt={product.title}
+          loading="lazy"
+          decoding="async"
+          className="w-full object-cover rounded-md
                h-32 sm:h-40 md:h-44 lg:h-48"
-  />
-</div>
+        />
+      </div>
 
       {/* Infos produit */}
       <h3 className="text-base mt-4 font-medium line-clamp-1">{product.title}</h3>
@@ -34,7 +34,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
             e.stopPropagation();
             onAdd(product);
           }}
-          className="mt-2 px-4 py-2 bg-[#ffc272] text-[#111213] rounded hover:bg-[#e6aa50] transition-colors"
+          className="mt-2 px-3 py-1.5 sm:px-0 sm:py-2 bg-[#ffc272] text-[#111213] text-sm sm:text-small rounded hover:bg-[#e6aa50] transition-colors"
         >
           Ajouter au panier
         </button>

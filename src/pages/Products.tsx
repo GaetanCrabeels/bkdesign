@@ -3,6 +3,8 @@ import { supabase } from "../lib/supabaseClient";
 import { Product, CartItem } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductCard } from "../components/ProductCard";
+import { Menu, ChevronRight } from "lucide-react"; // ✅ Icône hamburger
+
 
 const ProductModal = lazy(() => import("../components/ProductModal"));
 const CartModal = lazy(() => import("../components/CartModal"));
@@ -18,6 +20,9 @@ export default function Produits() {
   // ✅ Panier
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // ✅ Drawer mobile
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // ✅ États pour les filtres
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -50,8 +55,7 @@ export default function Produits() {
   function handleSubcategoryChange(subcat: string | null) {
     setSelectedSubcategory(subcat);
     navigate(
-      `/produits?${selectedCategory ? `category=${encodeURIComponent(selectedCategory)}&` : ""}${
-        subcat ? `subcategory=${encodeURIComponent(subcat)}` : ""
+      `/produits?${selectedCategory ? `category=${encodeURIComponent(selectedCategory)}&` : ""}${subcat ? `subcategory=${encodeURIComponent(subcat)}` : ""
       }`
     );
   }
@@ -113,26 +117,37 @@ export default function Produits() {
 
   return (
     <div className="min-h-screen bg-[#111213] text-[#ffc272]">
+      {/* ✅ Bouton d'ouverture du menu latéral (mobile uniquement) */}
+      <button
+        className="md:hidden absolute top-16 left-1 z-50 p-1 text-[#ffc272] flex items-center gap-2 bg-[#111213]"
+        onClick={() => setDrawerOpen(true)}
+        aria-label="Ouvrir les filtres"
+      > Filtres
+        <ChevronRight size={24} />
+      </button>
+
       <Header
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
         onOpenCart={() => setIsCartOpen(true)}
         query={query}
         setQuery={setQuery}
+        categories={categories} // ✅ On passe les catégories dynamiques ici
+
       />
 
       <div className="max-w-7xl mx-auto border-x-4 border-[#2a2b2c] px-6 py-10">
-        <h1 className="text-7xl text-center mb-4">Tous nos produits</h1>
+        <h1 className="text-4xl text-center mb-4 md:text-7xl">Tous nos produits</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* --- FILTRES --- */}
-          <aside className="bg-[#1b1c1d] rounded-2xl p-4 space-y-6">
+          {/* --- FILTRES (desktop) --- */}
+          <aside className="hidden md:block bg-[#1b1c1d] rounded-2xl p-4 space-y-6">
+            {/* ✅ même contenu qu'avant */}
             <div>
               <h3 className="text-6xl mb-5 text-center">Catégories</h3>
               <div className="flex flex-col space-y-2">
                 <button
-                  className={`text-left px-3 py-2 rounded-xl ${
-                    !selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
-                  }`}
+                  className={`text-left px-3 py-2 rounded-xl ${!selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
+                    }`}
                   onClick={() => handleCategoryChange(null)}
                 >
                   Toutes
@@ -140,11 +155,10 @@ export default function Produits() {
                 {categories.map((cat) => (
                   <button
                     key={cat}
-                    className={`text-left px-3 py-2 rounded-xl ${
-                      selectedCategory === cat
-                        ? "bg-[#ffc272] text-[#111213]"
-                        : "hover:bg-[#2a2b2c]"
-                    }`}
+                    className={`text-left px-3 py-2 rounded-xl ${selectedCategory === cat
+                      ? "bg-[#ffc272] text-[#111213]"
+                      : "hover:bg-[#2a2b2c]"
+                      }`}
                     onClick={() => handleCategoryChange(cat)}
                   >
                     {cat}
@@ -159,11 +173,10 @@ export default function Produits() {
                 <h3 className="text-4xl mb-5 text-center">Sous-catégories</h3>
                 <div className="flex flex-col space-y-2">
                   <button
-                    className={`text-left px-3 py-2 rounded-xl ${
-                      !selectedSubcategory
-                        ? "bg-[#ffc272] text-[#111213]"
-                        : "hover:bg-[#2a2b2c]"
-                    }`}
+                    className={`text-left px-3 py-2 rounded-xl ${!selectedSubcategory
+                      ? "bg-[#ffc272] text-[#111213]"
+                      : "hover:bg-[#2a2b2c]"
+                      }`}
                     onClick={() => handleSubcategoryChange(null)}
                   >
                     Toutes
@@ -171,11 +184,10 @@ export default function Produits() {
                   {subcategories.map((subcat) => (
                     <button
                       key={subcat}
-                      className={`text-left px-3 py-2 rounded-xl ${
-                        selectedSubcategory === subcat
-                          ? "bg-[#ffc272] text-[#111213]"
-                          : "hover:bg-[#2a2b2c]"
-                      }`}
+                      className={`text-left px-3 py-2 rounded-xl ${selectedSubcategory === subcat
+                        ? "bg-[#ffc272] text-[#111213]"
+                        : "hover:bg-[#2a2b2c]"
+                        }`}
                       onClick={() => handleSubcategoryChange(subcat)}
                     >
                       {subcat}
@@ -185,7 +197,7 @@ export default function Produits() {
               </div>
             )}
 
-            {/* Prix */}
+            {/* ✅ Prix */}
             <div>
               <h3 className="text-3xl mb-2 text-center">Prix</h3>
               <input
@@ -236,11 +248,105 @@ export default function Produits() {
         )}
       </div>
 
-      {/* ✅ Modal panier */}
-      {isCartOpen && (
-        <CartModal items={cart} onClose={() => setIsCartOpen(false)} />
+      {/* ✅ Drawer mobile */}
+      {drawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div className="fixed top-0 left-0 h-full w-3/4 max-w-xs bg-[#1b1c1d] z-50 shadow-lg p-6 overflow-y-auto transform transition-transform duration-300">
+            {/* Bouton fermer */}
+            <button
+              className="mb-6 text-right text-xl font-bold w-full"
+              onClick={() => setDrawerOpen(false)}
+            >
+              ✕
+            </button>
+
+            {/* Catégories */}
+            <h3 className="text-3xl mb-5 text-center">Catégories</h3>
+            <button
+              className={`block w-full text-left px-3 py-2 rounded-xl mb-2 ${!selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"
+                }`}
+              onClick={() => {
+                handleCategoryChange(null);
+                setDrawerOpen(false);
+
+              }}
+            >
+              Toutes
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => {
+                  handleCategoryChange(cat);
+                }}
+                className={`block w-full text-left px-3 py-2 rounded-xl mb-2 ${selectedCategory === cat
+                  ? "bg-[#ffc272] text-[#111213]"
+                  : "hover:bg-[#2a2b2c]"
+                  }`}
+              >
+                {cat}
+              </button>
+            ))}
+
+            {/* ✅ Sous-catégories */}
+            {selectedCategory && subcategories.length > 0 && (
+              <>
+                <h3 className="text-2xl mt-6 mb-4 text-center">Sous-catégories</h3>
+                <button
+                  className={`block w-full text-left px-3 py-2 rounded-xl mb-2 ${!selectedSubcategory
+                    ? "bg-[#ffc272] text-[#111213]"
+                    : "hover:bg-[#2a2b2c]"
+                    }`}
+                  onClick={() => {
+                    handleSubcategoryChange(null);
+                    setDrawerOpen(false);
+                  }}
+                >
+                  Toutes
+                </button>
+                {subcategories.map((subcat) => (
+                  <button
+                    key={subcat}
+                    onClick={() => {
+                      handleSubcategoryChange(subcat);
+                      setDrawerOpen(false);
+                    }}
+                    className={`block w-full text-left px-3 py-2 rounded-xl mb-2 ${selectedSubcategory === subcat
+                      ? "bg-[#ffc272] text-[#111213]"
+                      : "hover:bg-[#2a2b2c]"
+                      }`}
+                  >
+                    {subcat}
+                  </button>
+                ))}
+              </>
+            )}
+
+            {/* ✅ Prix */}
+            <div className="mt-6">
+              <h3 className="text-2xl mb-2 text-center">Prix</h3>
+              <input
+                type="range"
+                min={0}
+                max={1000}
+                value={priceRange[1]}
+                onChange={(e) => setPriceRange([0, Number(e.target.value)])}
+                className="w-full accent-[#ffc272]"
+              />
+              <p className="text-sm text-[#ffc272] text-center">
+                Jusqu'à {priceRange[1]} €
+              </p>
+            </div>
+          </div>
+        </>
       )}
 
+
+      {isCartOpen && <CartModal items={cart} onClose={() => setIsCartOpen(false)} />}
       <Footer />
     </div>
   );

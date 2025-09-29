@@ -1,29 +1,30 @@
-import { CartModal } from "../components/CartModal";
-import { CartItem } from "../types/product";
+export interface Product {
+  id: string; // Identifiant unique (UUID ou ID auto-incrémenté côté BDD)
+  title: string; // Nom du produit
+  description: string; // Description complète
+  price: number; // Prix unitaire
+  image_url: string; // URL de l'image (cohérent avec une BDD)
 
-export default function Produits() {
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]); // 🛒
+  // 🆕 Catégorisation
+  category: "Décoration" | "Fleurs" | "Cadre Plexi" | "Livres" | "Bougies décoratives";
+  subcategory?: 
+    | "Vases"
+    | "Cadres / Miroirs / Horloges"
+    | "Meubles"
+    | "Couvertures d’ambiance"
+    | "Bougies décoratives"
+    | "Livres"
+    | "Parfums d’intérieur"; // uniquement pour "Décoration"
 
-  // ...
+  // 🆕 Gestion stock
+  stock?: number; // Optionnel, peut être null si gestion externe
+  created_at?: string; // Timestamp de création (utile si tu passes en base SQL)
+}
 
-  return (
-    <div className="min-h-screen bg-[#111213] text-[#ffc272]">
-      <Header
-        cartCount={cartItems.reduce((acc, item) => acc + item.qty, 0)}
-        onOpenCart={() => setCartOpen(true)}
-        query={query}
-        setQuery={setQuery}
-      />
+export interface CartItem {
+  id: string;
+  title: string;
+  price: number;
+  qty: number;
 
-      {/* reste de la page ... */}
-
-      {cartOpen && (
-        <CartModal
-          items={cartItems}
-          onClose={() => setCartOpen(false)}
-        />
-      )}
-    </div>
-  );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 
@@ -7,16 +7,26 @@ interface HeaderProps {
   onOpenCart: () => void;
   query: string;
   setQuery: (q: string) => void;
+  categories: string[];
 }
 
-export function Header({ cartCount, onOpenCart, query, setQuery }: HeaderProps) {
+export function Header({ cartCount, onOpenCart, query, setQuery, categories }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // ✅ Déterminer dynamiquement les tailles en fonction du nombre de catégories
+  const { textSize, gapSize } = useMemo(() => {
+    const count = categories.length;
+    if (count <= 3) return { textSize: "text-2xl", gapSize: "gap-8" };
+    if (count <= 5) return { textSize: "text-xl", gapSize: "gap-6" };
+    if (count <= 7) return { textSize: "text-xs", gapSize: "gap-4" };
+    return { textSize: "text-base", gapSize: "gap-3" }; // au-delà de 7, on réduit pour éviter de casser le layout
+  }, [categories.length]);
 
   return (
     <header className="bg-black shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16 sm:h-20">
-        {/* Zone gauche : Logo + e-Shop */}
-        <div className="flex items-center gap-3 flex-shrink-0">
+        {/* Logo + e-Shop */}
+        <div className="flex items-center gap-3">
           <img
             src="/logo/bkdesignlogo.png"
             alt="BKDesign Logo"
@@ -27,27 +37,27 @@ export function Header({ cartCount, onOpenCart, query, setQuery }: HeaderProps) 
           />
           <Link
             to="/"
-            className="text-2xl sm:text-3xl tracking-tight text-[#ffc272] hover:text-white transition-colors"
+            className="text-2xl sm:text-3xl text-[#ffc272] hover:text-white transition-colors"
             style={{ fontFamily: "Great Vibes" }}
           >
             e-Shop
           </Link>
         </div>
 
-        {/* Menu desktop (caché sur mobile) */}
-        <nav className="hidden md:flex gap-6 text-lg text-[#ffc272]">
-          {["Décoration", "Fleurs", "Cadre Plexi"].map((item) => (
+        {/* Menu nav desktop - ✅ tailles dynamiques */}
+        <nav className={`hidden md:flex flex-1 justify-center ${gapSize} ${textSize} whitespace-nowrap text-[#ffc272]`}>
+          {categories.map((cat) => (
             <Link
-              key={item}
-              to={`/produits?category=${encodeURIComponent(item)}&`}
+              key={cat}
+              to={`/produits?category=${encodeURIComponent(cat)}`}
               className="hover:text-white transition-colors"
             >
-              {item}
+              {cat}
             </Link>
           ))}
         </nav>
 
-        {/* Zone droite : Panier + Hamburger */}
+        {/* Panier + Hamburger */}
         <div className="flex items-center gap-3">
           <button
             onClick={onOpenCart}
@@ -55,13 +65,12 @@ export function Header({ cartCount, onOpenCart, query, setQuery }: HeaderProps) 
           >
             Panier
             {cartCount > 0 && (
-              <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs rounded-full bg-red-500 text-white">
+              <span className="ml-1 w-5 h-5 text-xs rounded-full bg-red-500 text-white flex items-center justify-center">
                 {cartCount}
               </span>
             )}
           </button>
 
-          {/* Hamburger plus compact sur mobile */}
           <button
             className="md:hidden inline-flex items-center justify-center bg-[#b58545] text-white hover:bg-[#d9a556] rounded-lg p-2 hover:text-black transition-colors shadow-md"
             aria-label="Menu"
@@ -75,18 +84,16 @@ export function Header({ cartCount, onOpenCart, query, setQuery }: HeaderProps) 
       {/* Menu mobile */}
       {menuOpen && (
         <div className="md:hidden bg-black border-t border-[#2a2b2c] flex flex-col px-6 py-4 space-y-4">
-          {["Décoration", "Fleurs artificielles", "Cadre plexi personnalisé"].map(
-            (item) => (
-              <Link
-                key={item}
-                to={`/produits?category=${encodeURIComponent(item)}&`}
-                className="hover:text-white transition-colors"
-                onClick={() => setMenuOpen(false)}
-              >
-                {item}
-              </Link>
-            )
-          )}
+          {categories.map((cat) => (
+            <Link
+              key={cat}
+              to={`/produits?category=${encodeURIComponent(cat)}`}
+              className="hover:text-white transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              {cat}
+            </Link>
+          ))}
         </div>
       )}
     </header>

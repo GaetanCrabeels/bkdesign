@@ -5,6 +5,7 @@ import Produits from "./pages/Products";
 export default function App() {
   return (
     <Routes>
+      
       <Route path="/" element={<Home />} />
       {/* route générale pour tous les produits */}
       <Route path="/produits" element={<Produits />} />
