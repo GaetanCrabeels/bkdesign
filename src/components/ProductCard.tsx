@@ -13,19 +13,24 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
       onClick={onOpen}
     >
       {/* Conteneur avec aspect-ratio pour image responsive */}
-      <div className="relative w-full">
+      <div className="relative w-full ">
         <img
           src={product.image_url}
           alt={product.title}
           loading="lazy"
           decoding="async"
-          className="w-full object-cover rounded-md
+          className="w-full object-cover rounded-md 
                h-32 sm:h-40 md:h-44 lg:h-48"
         />
       </div>
 
       {/* Infos produit */}
-      <h3 className="text-base mt-4 font-medium line-clamp-1">{product.title}</h3>
+      <h3 className="md:text-xl  text-sm mt-4 font-light line-clamp-1 space-x-3 mb-5"
+        style={{ fontFamily: "Barlow" }}
+      >{product.title}
+
+      </h3>
+
       <p className="text-sm text-[#d6b98d]">{product.price} €</p>
 
       {onAdd && (

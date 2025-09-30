@@ -10,23 +10,30 @@ interface HeaderProps {
   categories: string[];
 }
 
-export function Header({ cartCount, onOpenCart, query, setQuery, categories }: HeaderProps) {
+export function Header({
+  cartCount,
+  onOpenCart,
+  query,
+  setQuery,
+  categories,
+}: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // ✅ Déterminer dynamiquement les tailles en fonction du nombre de catégories
+  // ✅ Tailles dynamiques pour la nav
   const { textSize, gapSize } = useMemo(() => {
     const count = categories.length;
     if (count <= 3) return { textSize: "text-2xl", gapSize: "gap-8" };
     if (count <= 5) return { textSize: "text-xl", gapSize: "gap-6" };
     if (count <= 7) return { textSize: "text-xs", gapSize: "gap-4" };
-    return { textSize: "text-base", gapSize: "gap-3" }; // au-delà de 7, on réduit pour éviter de casser le layout
+    return { textSize: "text-base", gapSize: "gap-3" };
   }, [categories.length]);
 
   return (
     <header className="bg-black shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16 sm:h-20">
+      {/* Barre principale */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6  grid grid-cols-2 sm:grid-cols-3 items-center h-16 sm:h-20">
         {/* Logo + e-Shop */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 justify-self-start">
           <img
             src="/logo/bkdesignlogo.png"
             alt="BKDesign Logo"
@@ -37,15 +44,17 @@ export function Header({ cartCount, onOpenCart, query, setQuery, categories }: H
           />
           <Link
             to="/"
-            className="text-2xl sm:text-3xl text-[#ffc272] hover:text-white transition-colors"
+            className="text-lg sm:text-3xl text-[#ffc272] hover:text-white transition-colors"
             style={{ fontFamily: "Great Vibes" }}
           >
             e-Shop
           </Link>
         </div>
 
-        {/* Menu nav desktop - ✅ tailles dynamiques */}
-        <nav className={`hidden md:flex flex-1 justify-center ${gapSize} ${textSize} whitespace-nowrap text-[#ffc272]`}>
+        {/* Navigation centrée (desktop uniquement) */}
+        <nav
+          className={`hidden md:flex justify-normal ${gapSize} ${textSize} whitespace-nowrap text-[#ffc272]`}
+        >
           {categories.map((cat) => (
             <Link
               key={cat}
@@ -58,7 +67,7 @@ export function Header({ cartCount, onOpenCart, query, setQuery, categories }: H
         </nav>
 
         {/* Panier + Hamburger */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 justify-self-end">
           <button
             onClick={onOpenCart}
             className="relative inline-flex items-center gap-2 bg-[#b58545] text-white hover:bg-[#d9a556] rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 hover:text-black transition-colors shadow-md"
@@ -83,12 +92,12 @@ export function Header({ cartCount, onOpenCart, query, setQuery, categories }: H
 
       {/* Menu mobile */}
       {menuOpen && (
-        <div className="md:hidden bg-black border-t border-[#2a2b2c] flex flex-col px-6 py-4 space-y-4">
+        <div className="md:hidden bg-black border-t border-[#2a2b2c] flex flex-col w-full py-4 space-y-4">
           {categories.map((cat) => (
             <Link
               key={cat}
               to={`/produits?category=${encodeURIComponent(cat)}`}
-              className="hover:text-white transition-colors"
+              className="px-6 text-[#ffc272] hover:text-white transition-colors text-lg"
               onClick={() => setMenuOpen(false)}
             >
               {cat}

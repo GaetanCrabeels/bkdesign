@@ -88,7 +88,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto md:border-x-4 border-[#2a2b2c] px-4 sm:px-6 lg:px-8">
         <section className="w-full flex flex-col items-center text-center py-10 sm:py-12">
           {/* ✅ LCP principal → h1 */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-[#ffc272] drop-shadow-lg mb-6 sm:mb-8">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl  text-[#ffc272] drop-shadow-lg mb-6 sm:mb-8">
             Bienvenue dans notre e-Shop
           </h1>
 
@@ -119,7 +119,7 @@ export default function Home() {
           </p>
 
           {/* ✅ Aspect ratio réservé + min-h pour éviter CLS */}
-          <div className="w-full max-w-5xl min-h-[300px] overflow-hidden rounded-xl">
+          <div className="w-full max-w-5xl min-h-5 overflow-hidden rounded-xl mb-0">
             <AutoCarousel />
           </div>
 
@@ -143,7 +143,7 @@ export default function Home() {
                 if (!productsInCat.length) return null;
                 return (
                   <div key={cat} className="space-y-6">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl text-center">
+                    <h2 className="text-3xl sm:text-4xl md:text-6xl text-center mb-10">
                       {cat}
                     </h2>
                     <Suspense
