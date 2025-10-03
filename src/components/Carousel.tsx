@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
+const BASE = import.meta.env.BASE_URL;
 
 const IMAGES = [
-  "/images/IMG_5975-scaled.webp",
-  "/images/IMG_6133-scaled.webp",
-  "/images/IMG_6135-scaled.webp",
-  "/images/IMG_6146-scaled.webp",
+  `${BASE}/images/thumbnail_IMG_9536.jpg`,
+  `${BASE}/images/thumbnail_IMG_9537.jpg`,
+  `${BASE}/images/thumbnail_IMG_9538.jpg`,
+  `${BASE}/images/thumbnail_IMG_9539.jpg`,
+  `${BASE}/images/thumbnail_IMG_9540.jpg`,
 ];
+
 
 const imagesLoop = [...IMAGES, ...IMAGES];
 
@@ -41,7 +44,7 @@ export function AutoCarousel() {
               alt={`carousel-${i}`}
               loading={i === 0 ? "eager" : "lazy"}
               decoding="async"
-              className="w-full h-full object-cover rounded-2xl shadow-lg"
+              className="w-[100%] h-[80%] object-cover rounded-2xl shadow-lg"
             />
           </div>
         ))}

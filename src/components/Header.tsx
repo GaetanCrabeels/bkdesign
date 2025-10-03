@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X, User, ShoppingCart } from "lucide-react";
+import { data, Link } from "react-router-dom";
+import { Menu, X, User, ShoppingCart, LogOut, LogIn } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { error } from "console";
 
 interface HeaderProps {
   cartCount: number;
   onOpenCart: () => void;
+  query: string;
+  setQuery: React.Dispatch<React.SetStateAction<string>>;
   categories: string[];
 }
 
@@ -15,6 +18,8 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showLogin, setShowLogin] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Vérifier si un utilisateur est connecté au montage
   useEffect(() => {
@@ -50,18 +55,51 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
     }
   };
 
+  // Sign-up handler
+  // Sign-up handler
+const handleSignUp = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+
+  if (error) {
+    alert("Erreur: " + error.message);
+    return;
+  }
+
+  const identities = data.user?.identities ?? [];
+
+  // Si identities est vide -> utilisateur existe déjà
+  if (data.user && identities.length === 0) {
+    alert("⚠️ Ce compte existe déjà. Essayez de vous connecter.");
+    return;
+  }
+
+  // Si identities contient un élément -> nouvel utilisateur
+  if (data.user && identities.length > 0) {
+    alert("✅ Compte créé ! Vérifiez vos emails pour confirmer.");
+    setShowSignUp(false);
+    setShowLogin(false);
+  }
+};
+
+
+
   // Logout handler
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setShowLogoutModal(false);
   };
 
   return (
     <header className="bg-black shadow-sm">
-      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 items-center h-16 sm:h-20">
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 grid grid-cols-2 lg:grid-cols-3 items-center h-16 sm:h-20">
         {/* Logo + e-Shop */}
         <div className="flex items-center gap-3 justify-self-start">
           <img
-            src="/logo/bkdesignlogo.png"
+            src={`${import.meta.env.BASE_URL}logo/bkdesignlogo.png`}
             alt="BKDesign Logo"
             width={80}
             height={80}
@@ -77,12 +115,12 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="hidden md:flex justify-center gap-6 text-[#ffc272]">
+        <nav className="hidden lg:flex text-xl justify-center flex-wrap md:flex-nowrap gap-6 text-[#ffc272] z-20">
           {categories.map((cat) => (
             <Link
               key={cat}
               to={`/produits?category=${encodeURIComponent(cat)}`}
-              className="hover:text-white transition-colors whitespace-nowrap"
+              className="hover:text-white transition-colors whitespace-nowrap text-base"
             >
               {cat}
             </Link>
@@ -90,23 +128,24 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
         </nav>
 
         {/* Panier + Auth */}
-        <div className="flex items-center gap-3 justify-self-end">
+        <div className="flex items-end justify-end gap-1 z-[0]">
           {/* Panier */}
           <button
             onClick={onOpenCart}
             className="relative inline-flex items-center justify-center bg-black text-[#ffc272] rounded-full p-2 sm:px-4 sm:py-2 hover:text-white transition-colors shadow-md"
           >
-            <ShoppingCart size={20} className="sm:hidden" /> {/* icône seule en mobile */}
-            <span className="hidden sm:inline">Panier</span> {/* texte à partir de sm */}
+            <ShoppingCart size={25} className="lg:hidden" />
+            <span className="hidden lg:inline">Panier</span>
             {cartCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 text-xs rounded-full bg-red-500 text-white flex items-center justify-center">
                 {cartCount}
               </span>
             )}
           </button>
-           {/* Hamburger */}
+
+          {/* Hamburger */}
           <button
-            className="md:hidden inline-flex items-center justify-center bg-black text-[#ffc272] hover:bg-[#d9a556] rounded-lg p-2 hover:text-black transition-colors shadow-md"
+            className="lg:hidden inline-flex items-center justify-center bg-black text-[#ffc272] hover:bg-[#d9a556] rounded-lg p-2 hover:text-black transition-colors shadow-md"
             aria-label="Menu"
             onClick={() => setMenuOpen((v) => !v)}
           >
@@ -117,35 +156,31 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
           {!user ? (
             <button
               onClick={() => setShowLogin(true)}
-              className="p-2 sm:p-3 rounded-full bg-black text-[#ffc272] hover:text-white transition-colors shadow-md"
+              className="p-2 rounded-full bg-black text-[#ffc272] hover:text-white transition-colors shadow-md"
               aria-label="Se connecter"
             >
               <User size={20} className="sm:w-6 sm:h-6" />
             </button>
           ) : (
             <button
-              onClick={handleLogout}
-              className="p-2 sm:p-3 rounded-full bg-red-600 text-[#ffc272] hover:bg-red-700 transition-colors shadow-md"
+              onClick={() => setShowLogoutModal(true)}
+              className="p-2 sm:p-1 rounded-full bg-black  text-[#ffc272] hover:text-white transition-colors shadow-md"
               aria-label="Déconnexion"
             >
-              <User size={20} className="sm:w-6 sm:h-6" />
+              <LogOut size={20} className="sm:w-8 sm:h-8 m-0 " />
             </button>
           )}
-          
-
-         
         </div>
-
       </div>
 
       {/* Menu mobile */}
       {menuOpen && (
-        <div className="md:hidden bg-black border-t border-[#2a2b2c] flex flex-col px-6 py-4 space-y-4">
+        <div className="lg:hidden bg-black border-t border-[#2a2b2c] flex flex-col px-6 py-4 space-y-4">
           {categories.map((cat) => (
             <Link
               key={cat}
               to={`/produits?category=${encodeURIComponent(cat)}`}
-              className="hover:text-white transition-colors whitespace-nowrap "
+              className="hover:text-white transition-colors whitespace-nowrap"
               onClick={() => setMenuOpen(false)}
             >
               {cat}
@@ -154,33 +189,86 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
         </div>
       )}
 
-      {/* Modal Login */}
-      {showLogin && !user && (
+      {/* Modal Login / Sign-up */}
+      {(showLogin || showSignUp) && !user && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
           <form
-            onSubmit={handleLogin}
-            className="bg-gray-900 p-6 rounded-xl shadow-lg w-80 space-y-4"
+            onSubmit={showLogin ? handleLogin : handleSignUp}
+            className="relative bg-gray-900 p-6 rounded-xl shadow-lg w-80 space-y-4"
           >
-            <h2 className="text-2xl  text-[#ffc272]">Connexion</h2>
+            {/* Bouton fermer */}
+            <button
+              type="button"
+              className="absolute top-2 right-2 text-gray-400 hover:text-white"
+              onClick={() => {
+                setShowLogin(false);
+                setShowSignUp(false);
+              }}
+              aria-label="Fermer"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-2xl text-[#ffc272]">
+              {showLogin ? "Connexion" : "Créer un compte"}
+            </h2>
+
             <input
               type="email"
-              placeholder="Email"
+              placeholder={showSignUp ? "Nouvelle adresse e-mail" : "Email"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full p-2 rounded bg-gray-800 text-white"
             />
+
             <input
               type="password"
-              placeholder="Mot de passe"
+              placeholder={showSignUp ? "Nouveau mot de passe" : "Mot de passe"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full p-2 rounded bg-gray-800 text-white"
             />
+
+            <p className="text-sm text-gray-400 mt-2">
+              {showLogin ? (
+                <>
+                  Pas de compte ?{" "}
+                  <button
+                    type="button"
+                    className="text-[#ffc272] hover:text-white"
+                    onClick={() => {
+                      setShowLogin(false);
+                      setShowSignUp(true);
+                    }}
+                  >
+                    Créer un compte
+                  </button>
+                </>
+              ) : (
+                <>
+                  Déjà un compte ?{" "}
+                  <button
+                    type="button"
+                    className="text-[#ffc272] hover:text-white"
+                    onClick={() => {
+                      setShowSignUp(false);
+                      setShowLogin(true);
+                    }}
+                  >
+                    Connectez-vous
+                  </button>
+                </>
+              )}
+            </p>
+
             <div className="flex justify-between gap-2">
               <button
                 type="button"
-                onClick={() => setShowLogin(false)}
-                className="flex-1 text-black  bg-[#b58545] py-2 rounded-lg"
+                onClick={() => {
+                  setShowLogin(false);
+                  setShowSignUp(false);
+                }}
+                className="flex-1 text-black bg-[#b58545] py-2 rounded-lg"
               >
                 Annuler
               </button>
@@ -188,10 +276,33 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
                 type="submit"
                 className="flex-1 text-black bg-[#b58545] py-2 rounded-lg hover:bg-[#d9a556]"
               >
-                Connexion
+                {showLogin ? "Connexion" : "Créer"}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal déconnexion */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
+          <div className="bg-gray-900 p-6 rounded-xl shadow-lg w-80 text-center">
+            <p className="mb-4 text-[#ffc272]">Voulez-vous vraiment vous déconnecter ?</p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-black text-[#ffc272] rounded hover:bg-[#dfc29d] hover:text-black transition-colors"
+              >
+                Oui
+              </button>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 bg-black text-[#ffc272] rounded hover:bg-[#dfc29d] hover:text-black transition-colors"
+              >
+                Non
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </header>

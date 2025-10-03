@@ -4,12 +4,13 @@ import { Product, CartItem } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductCard } from "../components/ProductCard";
 import { Menu, ChevronRight } from "lucide-react"; // ✅ Icône hamburger
+import { AdminProductForm } from "../components/AdminProductForm";
 
 
 const ProductModal = lazy(() => import("../components/ProductModal"));
 const CartModal = lazy(() => import("../components/CartModal"));
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
-import { Footer } from "../components/footer";
+import { Footer } from "../components/Footer";
 
 export default function Produits() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -28,6 +29,7 @@ export default function Produits() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [userRole, setUserRole] = useState<string | undefined>(undefined);
 
   // ✅ Hooks router
   const [searchParams] = useSearchParams();
@@ -45,6 +47,27 @@ export default function Produits() {
     else if (subFromPath) setSelectedSubcategory(subFromPath);
     else setSelectedSubcategory(null);
   }, [searchParams, params]);
+  useEffect(() => {
+  async function fetchUserRole() {
+    // Récupérer l'utilisateur actuel
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) return;
+
+    const userId = userData.user.id; // UUID correct
+
+    // Maintenant on peut interroger la table profiles
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single(); // un seul résultat attendu
+
+    if (error) return console.error("Erreur fetch role:", error);
+
+    setUserRole(data?.role);
+  }
+  fetchUserRole();
+}, []);
 
   // ✅ Synchroniser l'état avec l'URL
   function handleCategoryChange(cat: string | null) {
@@ -137,7 +160,11 @@ export default function Produits() {
 
       <div className="max-w-7xl mx-auto border-x-4 border-[#2a2b2c] px-6 py-10">
         <h1 className="text-4xl text-center mb-4 md:text-7xl">Tous nos produits</h1>
-
+        {userRole === "admin" && (
+          <div className="mb-8">
+            <AdminProductForm userRole={userRole} onProductsChange={setProducts} />
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* --- FILTRES (desktop) --- */}
           <aside className="hidden md:block bg-[#1b1c1d] rounded-2xl p-4 space-y-6">

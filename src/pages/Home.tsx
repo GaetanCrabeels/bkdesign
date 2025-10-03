@@ -3,7 +3,7 @@ import { Product, CartItem } from "../types/product";
 import { Header } from "../components/Header";
 import { AutoCarousel } from "../components/Carousel";
 import { supabase } from "../lib/supabaseClient";
-import { Footer } from "../components/footer";
+import { Footer } from "../components/Footer";
 
 // ✅ Lazy loading pour réduire le bundle initial
 const ProductModal = lazy(() => import("../components/ProductModal"));
@@ -88,40 +88,46 @@ export default function Home() {
       <div className="max-w-7xl mx-auto md:border-x-4 border-[#2a2b2c] px-4 sm:px-6 lg:px-8">
         <section className="w-full flex flex-col items-center text-center py-10 sm:py-12">
           {/* ✅ LCP principal → h1 */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl  text-[#ffc272] drop-shadow-lg mb-6 sm:mb-8">
-            Bienvenue dans notre e-Shop
-          </h1>
+          <section className="w-full flex flex-col items-center text-center py-10 sm:py-12">
+            {/* ✅ LCP principal → h1 */}
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-[#ffc272] drop-shadow-lg mb-6 sm:mb-8">              Bienvenue dans notre e-Shop
+            </h1>
 
-          {/* ✅ Paragraphe découpé en plusieurs parties */}
-          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-justify">
-            Nous proposons une sélection d’objets décoratifs, de meubles élégants et
-            d’accessoires issus de marques prestigieuses telles que{" "}
-            <span className="font-semibold">Richmond Interiors</span>,{" "}
-            <span className="font-semibold">Countryfield</span> et{" "}
-            <span className="font-semibold">Initials</span>.
-          </p>
+            <p className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#ffc272] mb-6">
+              CONCEPT STORE DÉCO, MODE & ÉNERGIE
+            </p>
 
-          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-justify">
-            Que ce soit avec des vases, miroirs, bougies lumineuses ou parfums d’intérieur,
-            chaque pièce de notre collection est pensée pour apporter charme et personnalité
-            à vos espaces.
-          </p>
+            <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-justify">
+              Découvrez un univers unique où se rencontrent :
+            </p>
 
-          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
-            Nous offrons également des services de conseils en décoration et stylisme
-            d’intérieur pour vous accompagner dans vos projets.
-          </p>
+            <ul className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-left list-disc list-inside space-y-2">
+              <li>
+                Décoration intérieure : cadres, vases, fleurs artificielles, objets design...
+              </li>
+              <li>
+                Pierres naturelles & bijoux énergétiques : minéraux, bijoux, encens, spiritualité...
+              </li>
+              <li>
+                Mode chic : vestes en fausse fourrure & accessoires tendance.
+              </li>
+            </ul>
 
-          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
-            Venez découvrir notre univers et laissez-vous inspirer par{" "}
-            <span className="font-semibold">BK Design</span>, où chaque détail fait la
-            différence.
-          </p>
+            <p className="max-w-4xl text-base sm:text- md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
+              Un lieu moderne, inspirant et raffiné pour sublimer votre intérieur, votre style et votre énergie.
+            </p>
 
-          {/* ✅ Aspect ratio réservé + min-h pour éviter CLS */}
-          <div className="w-full max-w-5xl min-h-5 overflow-hidden rounded-xl mb-0">
-            <AutoCarousel />
-          </div>
+            <p className="max-w-4xl sm:text-lg leading-relaxed text-[#d6b98d] mb-6 mx-4 text-center font-semibold">
+              MONS - RUE DES FRIPIERS 22B
+            </p>
+
+            {/* ✅ Aspect ratio réservé + min-h pour éviter CLS */}
+            <div className="w-full max-w-5xl min-h-5 overflow-hidden rounded-xl mb-0">
+              <AutoCarousel />
+            </div>
+          </section>
+
+
 
 
           {/* ✅ Liste produits par catégories */}
