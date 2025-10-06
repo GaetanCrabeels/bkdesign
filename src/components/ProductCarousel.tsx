@@ -21,7 +21,7 @@ export default function ProductCarousel({ products, onOpen, onAdd }: ProductCaro
   const nextClass = `custom-next-${id}`;
 
   return (
-    <section className="relative w-full">
+    <section className="relative">
       <div className="max-w-7xl mx-auto  px-4 sm:px-6 w-[95vw] lg:px-8">
         <Swiper
           modules={[Navigation]}
@@ -47,7 +47,7 @@ export default function ProductCarousel({ products, onOpen, onAdd }: ProductCaro
                 <ProductCard
                   product={product}
                   onOpen={() => onOpen(product)}
-                  onAdd={onAdd}
+                  onAdd={() => onAdd(product)}
                 />
               </div>
             </SwiperSlide>

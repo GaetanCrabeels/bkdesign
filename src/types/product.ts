@@ -1,8 +1,16 @@
+export interface ProductVariant {
+  id: string;           // Identifiant unique de la variante
+  produit_id: string;   // Id du produit parent
+  taille: string;       // Taille ou type de variante
+  prix: number;         // Prix spécifique à cette variante
+  quantity: number;        // total_quantity de cette variante
+}
+
 export interface Product {
   id: string; // Identifiant unique
   title: string; 
   description: string; 
-  price: number; 
+  price: number;  // Prix par défaut si pas de variantes
   image_url: string; 
 
   // Catégories et sous-catégories
@@ -43,9 +51,12 @@ export interface Product {
     | "Crème usage"
     | "Masques";
 
-  // Gestion stock
-  stock?: number; 
+  // Gestion total_quantity
+  total_quantity?: number; // facultatif si variants
   created_at?: string; 
+
+  // Variantes disponibles
+  variants?: ProductVariant[];
 }
 
 export interface CartItem {
@@ -53,4 +64,5 @@ export interface CartItem {
   title: string;
   price: number;
   qty: number;
+  variantKey?: string; // taille ou id variante pour différencier L, XL, etc.
 }
