@@ -6,17 +6,19 @@ interface CartModalProps {
 }
 
 export default function CartModal({ items, onClose }: CartModalProps) {
-  const total = items.reduce((acc, item) => acc + item.price * item.qty, 0);
+  const total = items.reduce((acc, item) => {
+    const promo = item.variant?.promotion || 0;
+    const price = promo > 0 ? item.price * (1 - promo / 100) : item.price;
+    return acc + price * item.qty;
+  }, 0);
 
   const handleCheckout = async () => {
     if (!items.length) return;
-
     const res = await fetch("http://localhost:4242/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items }),
     });
-
     const data = await res.json();
     if (data.url) window.location.href = data.url;
     else alert("Erreur lors de la création de la session Stripe");
@@ -33,12 +35,20 @@ export default function CartModal({ items, onClose }: CartModalProps) {
         ) : (
           <>
             <ul className="overflow-y-auto space-y-2 flex-1">
-              {items.map(item => (
-                <li key={item.id} className="flex justify-between py-2 border-b border-[#2a2b2c]">
-                  <span>{item.title}</span>
-                  <span>{item.qty} × {item.price} €</span>
-                </li>
-              ))}
+              {items.map(item => {
+                const promo = item.variant?.promotion || 0;
+                const price = promo > 0
+                  ? (item.price * (1 - promo / 100)).toFixed(2)
+                  : item.price.toFixed(2);
+
+                return (
+                  <li key={item.id} className="flex flex-col py-2 border-b border-[#2a2b2c]">
+                    <span className="font-semibold">{item.title}</span>
+                    {item.variant?.taille && <span>Taille : {item.variant.taille}</span>}
+                    <span>{item.qty} × {price} €</span>
+                  </li>
+                );
+              })}
             </ul>
             <div className="flex justify-between items-center mt-4">
               <span className="text-lg">Total :</span>

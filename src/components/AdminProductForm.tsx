@@ -18,15 +18,14 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
     const [category, setCategory] = useState("");
     const [subcategory, setSubcategory] = useState("");
     const [price, setPrice] = useState<number>(0);
-    const [total_quantity, settotal_quantity] = useState<number>(0);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [editingProductId, setEditingProductId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [imageUrl, setImageUrl] = useState<string>("");
 
-
-    const [variants, setVariants] = useState<{ taille: string; poids: number; promotion: number }[]>([
-        { taille: "", poids: 0, promotion: 0 }
+    // Variants with quantity
+    const [variants, setVariants] = useState<{ taille: string; poids: number; promotion: number; quantity: number }[]>([
+        { taille: "", poids: 0, promotion: 0, quantity: 0 }
     ]);
 
     const [allCategories, setAllCategories] = useState<string[]>([]);
@@ -57,14 +56,15 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
 
     const filteredSubcategories = allSubcategories.filter(s => s.category === category).map(s => s.subcategory);
 
-    const handleAddVariant = () => setVariants([...variants, { taille: "", poids: 0, promotion: 0 }]);
+    const handleAddVariant = () => setVariants([...variants, { taille: "", poids: 0, promotion: 0, quantity: 0 }]);
     const handleRemoveVariant = (index: number) => setVariants(variants.filter((_, i) => i !== index));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title) return alert("Le titre est obligatoire.");
 
-        let image_url = imageUrl; // par défaut, l'ancienne image
+        // Upload image si nouveau fichier
+        let image_url = imageUrl;
         if (imageFile) {
             const fileExt = imageFile.name.split(".").pop();
             const fileName = `${Date.now()}.${fileExt}`;
@@ -74,7 +74,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
             image_url = data.publicUrl;
         }
 
-        const productData = { title, description, category, subcategory, price, total_quantity, image_url };
+        const productData = { title, description, category, subcategory, price, image_url };
         let productId = editingProductId;
 
         if (editingProductId) {
@@ -86,13 +86,14 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
             // Supprimer anciennes variantes
             await supabase.from("product_variants").delete().eq("produit_id", editingProductId);
 
-            // Ajouter variantes actuelles avec promotion
+            // Ajouter variantes actuelles
             if (variants.length > 0) {
                 const variantsData = variants.map(v => ({
                     produit_id: editingProductId,
                     taille: v.taille,
                     poids: v.poids,
-                    promotion: v.promotion
+                    promotion: v.promotion,
+                    quantity: v.quantity
                 }));
                 const { error: variantsError } = await supabase.from("product_variants").insert(variantsData);
                 if (variantsError) console.error("Erreur ajout variantes :", variantsError.message);
@@ -110,16 +111,17 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                     produit_id: productId,
                     taille: v.taille,
                     poids: v.poids,
-                    promotion: v.promotion
+                    promotion: v.promotion,
+                    quantity: v.quantity
                 }));
                 const { error: variantsError } = await supabase.from("product_variants").insert(variantsData);
                 if (variantsError) console.error("Erreur ajout variantes :", variantsError.message);
             }
         }
 
-        // Reset
+        // Reset form
         setTitle(""); setDescription(""); setCategory(""); setSubcategory(""); setPrice(0);
-        settotal_quantity(0); setVariants([]); setImageFile(null);
+        setVariants([{ taille: "", poids: 0, promotion: 0, quantity: 0 }]); setImageFile(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
         setEditingProductId(null);
 
@@ -129,17 +131,15 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
 
     const handleEdit = async (product: Product) => {
         setImageUrl(product.image_url || "");
-
         setEditingProductId(product.id);
         setTitle(product.title);
         setDescription(product.description || "");
         setCategory(product.category || "");
         setSubcategory(product.subcategory || "");
         setPrice(product.price || 0);
-        settotal_quantity(product.total_quantity || 0);
 
         const { data, error } = await supabase.from("product_variants").select("*").eq("produit_id", product.id);
-        if (!error && data) setVariants(data.map(v => ({ taille: v.taille, poids: v.poids, promotion: v.promotion })));
+        if (!error && data) setVariants(data.map(v => ({ taille: v.taille, poids: v.poids, promotion: v.promotion, quantity: v.quantity })));
     };
 
     const handleDelete = async (id: string) => {
@@ -160,30 +160,20 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
             {showForm && (
                 <div className="transition-all duration-300 ease-in-out">
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Catégorie + Sous-catégorie avec saisie libre */}
                         <div className="mx-auto ">
                             <div className="mb-4">Titre</div>
-
-                        <textarea placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="mb-4  p-2 rounded bg-gray-800 text-white resize-none" />
-                        
+                            <textarea placeholder="Titre" value={title} onChange={e => setTitle(e.target.value)} className="mb-4 p-2 rounded bg-gray-800 text-white resize-none" />
 
                             {/* Catégorie */}
-                            <div className="relative col-span-2  mb-4">
+                            <div className="relative col-span-2 mb-4">
                                 <input
                                     list="categories-list"
                                     value={category}
-                                    onChange={(e) => {
-                                        setCategory(e.target.value);
-                                        setSubcategory("");
-                                    }}
+                                    onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }}
                                     placeholder="Catégorie (nouvelle ou existante)"
                                     className="p-2 rounded bg-gray-800 text-white "
                                 />
-                                <datalist id="categories-list">
-                                    {allCategories.map((cat) => (
-                                        <option key={cat} value={cat} />
-                                    ))}
-                                </datalist>
+                                <datalist id="categories-list">{allCategories.map((cat) => <option key={cat} value={cat} />)}</datalist>
                             </div>
 
                             {/* Sous-catégorie */}
@@ -196,97 +186,44 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                                         placeholder="Sous-catégorie (nouvelle ou existante)"
                                         className="p-2 rounded bg-gray-800 text-white mb-4"
                                     />
-                                    <datalist id="subcategories-list">
-                                        {filteredSubcategories.map((sub) => (
-                                            <option key={sub} value={sub} />
-                                        ))}
-                                    </datalist>
+                                    <datalist id="subcategories-list">{filteredSubcategories.map((sub) => <option key={sub} value={sub} />)}</datalist>
                                 </div>
                             )}
-
 
                             <div className="">
                                 <div className="mb-4">Prix en €</div>
-                                <input type="number" placeholder="Prix (€)" onChange={e => setPrice(Number(e.target.value))} className=" mb-4 p-2 rounded bg-gray-800 text-white w-32" />
-                                <div className="mb-4">Quantité par taille</div>
-                                <input type="number" placeholder="total_quantity" value={total_quantity} onChange={e => settotal_quantity(Number(e.target.value))} className=" mb-4 p-2 rounded bg-gray-800 text-white w-32" />
+                                <input type="number" placeholder="Prix (€)" value={price} onChange={e => setPrice(Number(e.target.value))} className="mb-4 p-2 rounded bg-gray-800 text-white w-32" />
                             </div>
-                            <div className="mb-4">Description</div>
 
+                            <div className="mb-4">Description</div>
                             <textarea placeholder="Description" value={description} onChange={e => setDescription(e.target.value)} className="min-w-96 h-32 p-2 rounded bg-gray-800 text-white resize-none" />
+
                             {imageUrl && (
                                 <div className="mt-2">
                                     <p className="text-sm text-gray-400 mb-1">Image actuelle :</p>
-                                    <img
-                                        src={imageUrl}
-                                        alt="Aperçu du produit"
-                                        className="w-32 h-32 object-cover rounded border border-gray-600"
-                                    />
+                                    <img src={imageUrl} alt="Aperçu du produit" className="w-32 h-32 object-cover rounded border border-gray-600" />
                                 </div>
                             )}
                         </div>
-                        <input ref={fileInputRef} type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)} className=" p-2 rounded bg-gray-800 text-white" />
+
+                        <input ref={fileInputRef} type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)} className="p-2 rounded bg-gray-800 text-white" />
 
                         {/* Variantes */}
                         <div className="mt-4 ">
-                            <h4 className="text-white mb-2">Taille / Poids / Promotion</h4>
+                            <h4 className="text-white mb-2">Taille / Poids / Promotion / Quantité</h4>
                             {variants.map((v, i) => (
                                 <div key={i} className="flex flex-wrap gap-2 mb-2 items-center">
-                                    {/* Taille */}
-                                    <input
-                                        value={v.taille || ""}
-                                        onChange={(e) => {
-                                            const nv = [...variants];
-                                            nv[i].taille = e.target.value;
-                                            setVariants(nv);
-                                        }}
-                                        className="p-2 rounded bg-gray-800 text-white w-32 placeholder-gray-400"
-                                        placeholder="Taille en cm"
-                                    />
-
-                                    {/* Poids */}
-                                    <input
-                                        value={v.poids === 0 ? "" : v.poids}
-                                        type="number"
-                                        onChange={(e) => {
-                                            const nv = [...variants];
-                                            nv[i].poids = Number(e.target.value);
-                                            setVariants(nv);
-                                        }}
-                                        className="p-2 rounded bg-gray-800 text-white w-40 placeholder-gray-400"
-                                        placeholder="Poids (En gramme)"
-                                    />
-
-                                    {/* Promotion */}
-                                    <input
-                                        value={v.promotion === 0 ? "" : v.promotion}
-                                        type="number"
-                                        onChange={(e) => {
-                                            const nv = [...variants];
-                                            nv[i].promotion = Number(e.target.value);
-                                            setVariants(nv);
-                                        }}
-                                        className="p-2 rounded bg-gray-800 text-white w-40 placeholder-gray-400"
-                                        placeholder="Promotion (%)"
-                                    />
-
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveVariant(i)}
-                                        className="bg-red-600 px-2 py-1 rounded text-white"
-                                    >
-                                        Supprimer
-                                    </button>
+                                    <input value={v.taille || ""} onChange={(e) => { const nv = [...variants]; nv[i].taille = e.target.value; setVariants(nv); }} className="p-2 rounded bg-gray-800 text-white w-32 placeholder-gray-400" placeholder="Taille en cm" />
+                                    <input value={v.poids === 0 ? "" : v.poids} type="number" onChange={(e) => { const nv = [...variants]; nv[i].poids = Number(e.target.value); setVariants(nv); }} className="p-2 rounded bg-gray-800 text-white w-40 placeholder-gray-400" placeholder="Poids (g)" />
+                                    <input value={v.promotion === 0 ? "" : v.promotion} type="number" onChange={(e) => { const nv = [...variants]; nv[i].promotion = Number(e.target.value); setVariants(nv); }} className="p-2 rounded bg-gray-800 text-white w-40 placeholder-gray-400" placeholder="Promotion (%)" />
+                                    <input value={v.quantity === 0 ? "" : v.quantity} type="number" onChange={(e) => { const nv = [...variants]; nv[i].quantity = Number(e.target.value); setVariants(nv); }} className="p-2 rounded bg-gray-800 text-white w-32 placeholder-gray-400" placeholder="Quantité" />
+                                    <button type="button" onClick={() => handleRemoveVariant(i)} className="bg-red-600 px-2 py-1 rounded text-white">Supprimer</button>
                                 </div>
                             ))}
-
-
-                            <button type="button" onClick={handleAddVariant} className="bg-[#ffc272] px-3 py-1 rounded text-black">Ajouter une ligne Taille/Poids/Promotion</button>
+                            <button type="button" onClick={handleAddVariant} className="bg-[#ffc272] px-3 py-1 rounded text-black">Ajouter une ligne Taille/Poids/Promotion/Quantité</button>
                         </div>
 
-                        <button type="submit" className="bg-[#ffc272] text-black px-4 py-2 rounded hover:bg-[#d9a556] mt-4">
-                            {editingProductId ? "Modifier" : "Ajouter le produit"}
-                        </button>
+                        <button type="submit" className="bg-[#ffc272] text-black px-4 py-2 rounded hover:bg-[#d9a556] mt-4">{editingProductId ? "Modifier" : "Ajouter le produit"}</button>
                     </form>
 
                     {/* Liste produits */}

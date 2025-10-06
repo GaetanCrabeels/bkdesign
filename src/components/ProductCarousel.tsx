@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Product } from "../types/product";
+import { Product, CartItem } from "../types/product";
 import { ProductCard } from "./ProductCard";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
@@ -11,7 +11,7 @@ import "swiper/css/navigation";
 interface ProductCarouselProps {
   products: Product[];
   onOpen: (p: Product) => void;
-  onAdd: (p: Product) => void;
+  onAdd?: (item: CartItem) => void; // ⚡ changer Product -> CartItem
 }
 
 export default function ProductCarousel({ products, onOpen, onAdd }: ProductCarouselProps) {
@@ -22,7 +22,7 @@ export default function ProductCarousel({ products, onOpen, onAdd }: ProductCaro
 
   return (
     <section className="relative">
-      <div className="max-w-7xl mx-auto  px-4 sm:px-6 w-[95vw] lg:px-8">
+      <div className="max-w-7xl mx-auto ">
         <Swiper
           modules={[Navigation]}
           spaceBetween={16}
@@ -47,8 +47,9 @@ export default function ProductCarousel({ products, onOpen, onAdd }: ProductCaro
                 <ProductCard
                   product={product}
                   onOpen={() => onOpen(product)}
-                  onAdd={() => onAdd(product)}
+                  onAdd={onAdd} // maintenant compatible : CartItem
                 />
+
               </div>
             </SwiperSlide>
           ))}
