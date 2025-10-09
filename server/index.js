@@ -1,46 +1,88 @@
-import express from 'express';
-import Stripe from 'stripe';
-import cors from 'cors';
-import dotenv from 'dotenv';
-
+import express from "express";
+import crypto from "crypto";
+import cors from "cors";
+import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2022-11-15',
-});
-
 app.use(cors());
 app.use(express.json());
 
-app.post('/create-checkout-session', async (req, res) => {
-    try {
-        const { items } = req.body; // items = [{id, name, price, quantity}, ...]
+/**
+ * Génère le checksum BPOST uniquement avec les champs obligatoires
+ */
+function generateBpostChecksum(params, passphrase) {
+  const mandatoryFields = {
+    accountId: params.accountId,
+    action: "START",
+    customerCountry: params.customerCountry,
+    orderReference: params.orderReference,
+  };
 
-        const line_items = items.map(item => ({
-            price_data: {
-                currency: 'eur',
-                product_data: { name: item.title }, // utilise le titre du produit
-                unit_amount: item.price * 100,     // montant en centimes
-            },
-            quantity: item.qty,
-        }));
+  const concatenated = Object.keys(mandatoryFields)
+    .sort() // tri alphabétique
+    .map(k => `${k}=${mandatoryFields[k]}`)
+    .join("&") + `&${passphrase}`;
 
+  console.log("🔑 BPOST checksum string:", concatenated);
 
-        const session = await stripe.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items,
-            mode: 'payment',
-            success_url: `${process.env.CLIENT_URL}/success`,
-            cancel_url: `${process.env.CLIENT_URL}/cancel`,
-        });
+  return crypto.createHash("sha256").update(concatenated, "utf8").digest("hex");
+}
 
-        res.json({ url: session.url });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+/**
+ * Endpoint pour récupérer uniquement les paramètres obligatoires
+ */
+app.post("/bpost/get-shm-params", (req, res) => {
+  const orderReference = Date.now(); // ou générer un ID unique
+
+  const params = {
+    accountId: "042599",
+    action: "START",
+    customerCountry: "BE",
+    orderReference,
+  };
+
+  // Calcul du checksum
+  params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
+
+  console.log("📦 BPOST params ready to send:", JSON.stringify(params, null, 2));
+
+  res.json(params);
+});
+
+/**
+ * 🔹 Endpoint BPOST Confirm
+ * Redirige vers la page React /confirm
+ */
+app.post("/bpost/confirm", (req, res) => {
+  const params = req.body;
+  console.log("✅ BPOST Confirm received:", params);
+
+  // Redirection vers React front
+  res.redirect(`${process.env.CLIENT_URL}/confirm`);
+});
+
+/**
+ * 🔹 Endpoint BPOST Error
+ * Redirige vers la page React /error
+ */
+app.post("/bpost/error", (req, res) => {
+  const params = req.body;
+  console.log("❌ BPOST Error received:", params);
+
+  res.redirect(`${process.env.CLIENT_URL}/error`);
+});
+
+/**
+ * 🔹 Endpoint BPOST Cancel
+ * Redirige vers la page React /cancel
+ */
+app.post("/bpost/cancel", (req, res) => {
+  const params = req.body;
+  console.log("⚠️ BPOST Cancel received:", params);
+
+  res.redirect(`${process.env.CLIENT_URL}/cancel`);
 });
 
 const PORT = process.env.PORT || 4242;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Serveur démarré sur port ${PORT}`));

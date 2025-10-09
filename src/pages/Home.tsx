@@ -163,8 +163,11 @@ export default function Home() {
 
       {cartOpen && (
         <Suspense fallback={null}>
-          <CartModal items={cart} onClose={() => setCartOpen(false)} />
-        </Suspense>
+          <CartModal
+            items={cart}
+            onClose={() => setCartOpen(false)}
+            onUpdateCart={setCart} // 🔹 le state est mis à jour ici
+          />         </Suspense>
       )}
 
       <Footer />

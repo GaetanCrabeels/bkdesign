@@ -3,7 +3,6 @@ import { supabase } from "../lib/supabaseClient";
 import { Product, CartItem } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductCard } from "../components/ProductCard";
-import { Menu, ChevronRight } from "lucide-react";
 import { AdminProductForm } from "../components/AdminProductForm";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { Footer } from "../components/Footer";
@@ -43,33 +42,40 @@ export default function Produits() {
   // --- Rôle utilisateur
   useEffect(() => {
     async function fetchUserRole() {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) return;
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
 
       const userId = userData.user.id;
       const { data, error } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, panier")
         .eq("id", userId)
         .single();
-      if (!error) setUserRole(data?.role);
+
+      if (!error) {
+        setUserRole(data?.role);
+        if (data?.panier) setCart(data.panier);
+      }
     }
     fetchUserRole();
   }, []);
 
-  // --- Synchronisation URL
-  function handleCategoryChange(cat: string | null) {
-    setSelectedCategory(cat);
-    navigate(cat ? `/produits?category=${encodeURIComponent(cat)}` : "/produits");
-  }
-  function handleSubcategoryChange(subcat: string | null) {
-    setSelectedSubcategory(subcat);
-    navigate(
-      `/produits?${selectedCategory ? `category=${encodeURIComponent(selectedCategory)}&` : ""}${
-        subcat ? `subcategory=${encodeURIComponent(subcat)}` : ""
-      }`
-    );
-  }
+  // --- Sauvegarde panier
+  useEffect(() => {
+    async function saveCart() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+
+      const userId = userData.user.id;
+
+      await supabase
+        .from("profiles")
+        .update({ panier: cart })
+        .eq("id", userId);
+    }
+
+    if (cart.length > 0) saveCart();
+  }, [cart]);
 
   // --- Fetch produits
   useEffect(() => {
@@ -83,7 +89,6 @@ export default function Produits() {
     fetchProducts();
   }, []);
 
-  // --- Ajout au panier (CartItem complet)
   function addToCart(item: CartItem) {
     setCart((prev) => {
       const existing = prev.find((i) => i.id === item.id);
@@ -121,7 +126,6 @@ export default function Produits() {
 
   return (
     <div className="min-h-screen bg-[#111213] text-[#ffc272]">
-      {/* Header */}
       <Header
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
         onOpenCart={() => setIsCartOpen(true)}
@@ -136,14 +140,13 @@ export default function Produits() {
         {userRole === "admin" && <AdminProductForm userRole={userRole} onProductsChange={setProducts} />}
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* --- FILTRES (desktop) --- */}
           <aside className="hidden md:block bg-[#1b1c1d] rounded-2xl p-4 space-y-6">
             <div>
               <h3 className="text-6xl mb-5 text-center">Catégories</h3>
               <div className="flex flex-col space-y-2">
-                <button className={`text-left px-3 py-2 rounded-xl ${!selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => handleCategoryChange(null)}>Toutes</button>
+                <button className={`text-left px-3 py-2 rounded-xl ${!selectedCategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => { setSelectedCategory(null); navigate("/produits"); }}>Toutes</button>
                 {categories.map(cat => (
-                  <button key={cat} className={`text-left px-3 py-2 rounded-xl ${selectedCategory === cat ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => handleCategoryChange(cat)}>{cat}</button>
+                  <button key={cat} className={`text-left px-3 py-2 rounded-xl ${selectedCategory === cat ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => { setSelectedCategory(cat); navigate(`/produits?category=${encodeURIComponent(cat)}`); }}>{cat}</button>
                 ))}
               </div>
             </div>
@@ -152,9 +155,9 @@ export default function Produits() {
               <div>
                 <h3 className="text-4xl mb-5 text-center">Sous-catégories</h3>
                 <div className="flex flex-col space-y-2">
-                  <button className={`text-left px-3 py-2 rounded-xl ${!selectedSubcategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => handleSubcategoryChange(null)}>Toutes</button>
+                  <button className={`text-left px-3 py-2 rounded-xl ${!selectedSubcategory ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => setSelectedSubcategory(null)}>Toutes</button>
                   {subcategories.map(subcat => (
-                    <button key={subcat} className={`text-left px-3 py-2 rounded-xl ${selectedSubcategory === subcat ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => handleSubcategoryChange(subcat)}>{subcat}</button>
+                    <button key={subcat} className={`text-left px-3 py-2 rounded-xl ${selectedSubcategory === subcat ? "bg-[#ffc272] text-[#111213]" : "hover:bg-[#2a2b2c]"}`} onClick={() => setSelectedSubcategory(subcat)}>{subcat}</button>
                   ))}
                 </div>
               </div>
@@ -167,7 +170,6 @@ export default function Produits() {
             </div>
           </aside>
 
-          {/* --- PRODUITS --- */}
           <main className="md:col-span-3">
             {loading ? <p className="text-center">Chargement...</p> :
               filtered.length === 0 ? (
@@ -181,7 +183,7 @@ export default function Produits() {
                       key={p.id}
                       product={p}
                       onOpen={() => setSelectedProduct(p)}
-                      onAdd={(item) => addToCart(item)}
+                      onAdd={addToCart}
                     />
                   ))}
                 </div>
@@ -193,12 +195,16 @@ export default function Produits() {
           <ProductModal
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
-            onAdd={(item) => addToCart(item)}
+            onAdd={addToCart}
           />
         )}
       </div>
 
-      {isCartOpen && <CartModal items={cart} onClose={() => setIsCartOpen(false)} />}
+      {isCartOpen && <CartModal
+        items={cart}
+        onClose={() => setIsCartOpen(false)}
+        onUpdateCart={setCart} // 🔹 le state est mis à jour ici
+      />}
       <Footer />
     </div>
   );

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { data, Link } from "react-router-dom";
-import { Menu, X, User, ShoppingCart, LogOut, LogIn } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Menu, X, User, ShoppingCart, LogOut } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { error } from "console";
 
 interface HeaderProps {
   cartCount: number;
