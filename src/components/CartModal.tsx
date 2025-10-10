@@ -42,7 +42,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
   // 🔹 Checkout Stripe
   const handleCheckout = async () => {
     if (!items.length) return;
-    const res = await fetch("http://localhost:4242/create-checkout-session", {
+    const res = await fetch("https://bkdesign.onrender.com/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items }),
@@ -79,7 +79,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
   // 🔹 Popup BPOST
   const openBpostPopup = async () => {
-    const res = await fetch("http://localhost:4242/bpost/get-shm-params", {
+    const res = await fetch("https://bkdesign.onrender.com/bpost/get-shm-params", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items }),
