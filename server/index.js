@@ -35,8 +35,8 @@ app.post("/create-checkout-session", async (req, res) => {
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
-      success_url: `${process.env.CLIENT_URL}/success`,
-      cancel_url: `${process.env.CLIENT_URL}/cancel`,
+      success_url: `${process.env.CLIENT_URL}/confirm`,
+      cancel_url: `${process.env.CLIENT_URL}`,
     });
 
     res.json({ url: session.url });
@@ -76,7 +76,7 @@ app.post("/bpost/get-shm-params", (req, res) => {
   const orderReference = Date.now(); // ou générer un ID unique
 
   const params = {
-    accountId: params.accountId,
+    accountId: process.env.BPOST_ACCOUNT_ID,
     action: "START",
     customerCountry: "BE",
     orderReference,
@@ -106,7 +106,7 @@ app.post("/bpost/error", (req, res) => {
 // ⚠️ Cancel
 app.post("/bpost/cancel", (req, res) => {
   console.log("⚠️ BPOST Cancel received:", req.body);
-  res.redirect(`${process.env.CLIENT_URL}/cancel`);
+  res.redirect(`${process.env.CLIENT_URL}`);
 });
 
 /* -------------------------------------------------------------------------- */
