@@ -25,7 +25,13 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingProduct, setEditingProduct] = useState<ProductWithVariants | null>(null);
+
+    const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
     const [openSubcategories, setOpenSubcategories] = useState<Record<string, boolean>>({});
+
+    const toggleCategory = (key: string) => {
+        setOpenCategories(prev => ({ ...prev, [key]: !prev[key] }));
+    };
 
     const toggleSubcategory = (key: string) => {
         setOpenSubcategories(prev => ({ ...prev, [key]: !prev[key] }));
@@ -40,19 +46,30 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
         imageFile: null as File | null,
     });
 
-    const [variants, setVariants] = useState<Variant[]>([{ taille: "", poids: 0, promotion: 0, quantity: 0 }]);
+    const [variants, setVariants] = useState<Variant[]>([
+        { taille: "", poids: 0, promotion: 0, quantity: 0 },
+    ]);
+
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    useEffect(() => { fetchProducts(); }, []);
+    useEffect(() => {
+        fetchProducts();
+    }, []);
 
     async function fetchProducts() {
         setLoading(true);
-        const { data: productsData } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+        const { data: productsData } = await supabase
+            .from("products")
+            .select("*")
+            .order("created_at", { ascending: false });
         if (!productsData) return setLoading(false);
 
         const productsWithVariants: ProductWithVariants[] = await Promise.all(
             productsData.map(async (p) => {
-                const { data: variantData } = await supabase.from("product_variants").select("*").eq("produit_id", p.id);
+                const { data: variantData } = await supabase
+                    .from("product_variants")
+                    .select("*")
+                    .eq("produit_id", p.id);
                 return { ...p, variants: variantData || [] };
             })
         );
@@ -62,11 +79,11 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
     }
 
     const handleChange = (field: keyof typeof formData, value: string | File | null) => {
-        setFormData(f => ({ ...f, [field]: value }));
+        setFormData((f) => ({ ...f, [field]: value }));
     };
 
     const handleVariantChange = (index: number, field: VariantField, value: string) => {
-        setVariants(prev => {
+        setVariants((prev) => {
             const newVariants = [...prev];
             if (field === "taille") newVariants[index][field] = value;
             else newVariants[index][field] = Number(value);
@@ -74,8 +91,10 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
         });
     };
 
-    const addVariant = () => setVariants([...variants, { taille: "", poids: 0, promotion: 0, quantity: 0 }]);
-    const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
+    const addVariant = () =>
+        setVariants([...variants, { taille: "", poids: 0, promotion: 0, quantity: 0 }]);
+    const removeVariant = (i: number) =>
+        setVariants(variants.filter((_, idx) => idx !== i));
 
     const handleEdit = async (p: ProductWithVariants) => {
         setEditingProduct(p);
@@ -88,13 +107,16 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
             imageFile: null,
         });
 
-        const { data: variantData } = await supabase.from("product_variants").select("*").eq("produit_id", p.id);
+        const { data: variantData } = await supabase
+            .from("product_variants")
+            .select("*")
+            .eq("produit_id", p.id);
         setVariants(
-            variantData?.map(v => ({
+            variantData?.map((v) => ({
                 taille: v.taille || "",
                 poids: v.poids || 0,
                 promotion: v.promotion || 0,
-                quantity: v.quantity || 0
+                quantity: v.quantity || 0,
             })) || [{ taille: "", poids: 0, promotion: 0, quantity: 0 }]
         );
 
@@ -105,7 +127,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
         if (!confirm("Supprimer ce produit ?")) return;
         await supabase.from("products").delete().eq("id", id);
         await supabase.from("product_variants").delete().eq("produit_id", id);
-        setProducts(products.filter(p => p.id !== id));
+        setProducts(products.filter((p) => p.id !== id));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -116,7 +138,9 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
         if (formData.imageFile) {
             const fileExt = formData.imageFile.name.split(".").pop();
             const fileName = `${Date.now()}.${fileExt}`;
-            const { error: uploadError } = await supabase.storage.from("BKDesign").upload(fileName, formData.imageFile);
+            const { error: uploadError } = await supabase.storage
+                .from("BKDesign")
+                .upload(fileName, formData.imageFile);
             if (uploadError) return alert("Erreur upload image: " + uploadError.message);
             const { data } = supabase.storage.from("BKDesign").getPublicUrl(fileName);
             image_url = data.publicUrl;
@@ -128,7 +152,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
             category: formData.cat,
             subcategory: formData.sub,
             price: Number(formData.price),
-            image_url
+            image_url,
         };
 
         let productId = editingProduct?.id;
@@ -137,14 +161,17 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
             await supabase.from("products").update(productData).eq("id", editingProduct.id);
             await supabase.from("product_variants").delete().eq("produit_id", editingProduct.id);
         } else {
-            const { data, error } = await supabase.from("products").insert([productData]).select("id");
+            const { data, error } = await supabase
+                .from("products")
+                .insert([productData])
+                .select("id");
             if (error) return alert(error.message);
             productId = data?.[0].id;
         }
 
         if (productId && variants.length > 0) {
             await supabase.from("product_variants").insert(
-                variants.map(v => ({ produit_id: productId, ...v }))
+                variants.map((v) => ({ produit_id: productId, ...v }))
             );
         }
 
@@ -160,11 +187,13 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
 
     return (
         <div className="bg-[#1b1c1d] p-4 rounded-2xl mb-6 text-[#ffc272]">
-            <button onClick={() => setShowForm(!showForm)} className="bg-[#ffc272] text-[#111213] px-3 py-1 rounded mb-3 hover:bg-[#d9a556]">
+            <button
+                onClick={() => setShowForm(!showForm)}
+                className="bg-[#ffc272] text-[#111213] px-3 py-1 rounded mb-3 hover:bg-[#d9a556]"
+            >
                 {showForm ? "Masquer admin" : "Afficher admin"}
             </button>
-
-            {showForm && (
+            {!showForm && (
                 <form onSubmit={handleSubmit} className="space-y-3">
                     {/* Champs produit */}
                     <div className="flex flex-wrap gap-3">
@@ -185,7 +214,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                     <textarea placeholder="Description" value={formData.desc} onChange={e => handleChange("desc", e.target.value)} className="w-full p-1 rounded bg-[#2a2b2c] text-[#ffc272]" />
 
                     <div className=" flex items-center gap-3">
-                        <input type="file" ref={fileInputRef} onChange={e => handleChange("imageFile", e.target.files?.[0] || null)} className=" pt-3rounded bg-[#2a2b2c] text-[#ffc272]" />
+                        <input type="file" ref={fileInputRef} onChange={e => handleChange("imageFile", e.target.files?.[0] || null)} className=" text-xs sm:text-lg pt-3rounded bg-[#2a2b2c] text-[#ffc272]" />
                         {editingProduct?.image_url && <img src={editingProduct.image_url} alt="preview" className=" mt-4 w-24 h-24 rounded" />}
                     </div>
 
@@ -194,13 +223,47 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                         <h4 className="font-semibold mb-1 text-[#ffc272]">Variantes</h4>
                         {variants.map((v, i) => (
                             <div key={i} className="flex gap-1 mb-1 flex-wrap items-center">
-                                <input placeholder="Taille" value={v.taille} onChange={e => handleVariantChange(i, "taille", e.target.value)} className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]" />
-                                <input placeholder="Poids" type="number" value={v.poids} onChange={e => handleVariantChange(i, "poids", e.target.value)} className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]" />
-                                <input placeholder="Promo %" type="number" value={v.promotion} onChange={e => handleVariantChange(i, "promotion", e.target.value)} className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]" />
-                                <input placeholder="Qté" type="number" value={v.quantity} onChange={e => handleVariantChange(i, "quantity", e.target.value)} className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]" />
-                                <button type="button" onClick={() => removeVariant(i)} className="bg-red-600 px-2 rounded text-white">🗑</button>
+                                <input
+                                    placeholder="Taille"
+                                    value={v.taille}
+                                    onChange={e => handleVariantChange(i, "taille", e.target.value)}
+                                    className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]"
+                                />
+
+                                <input
+                                    placeholder="Poids"
+                                    type="number"
+                                    value={v.poids === 0 ? "" : v.poids}
+                                    onChange={e => handleVariantChange(i, "poids", e.target.value)}
+                                    className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]"
+                                />
+
+                                <input
+                                    placeholder="Promo %"
+                                    type="number"
+                                    value={v.promotion === 0 ? "" : v.promotion}
+                                    onChange={e => handleVariantChange(i, "promotion", e.target.value)}
+                                    className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]"
+                                />
+
+                                <input
+                                    placeholder="Qté"
+                                    type="number"
+                                    value={v.quantity === 0 ? "" : v.quantity}
+                                    onChange={e => handleVariantChange(i, "quantity", e.target.value)}
+                                    className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]"
+                                />
+
+                                <button
+                                    type="button"
+                                    onClick={() => removeVariant(i)}
+                                    className="bg-red-600 px-2 rounded text-white"
+                                >
+                                    🗑
+                                </button>
                             </div>
                         ))}
+
                         <button type="button" onClick={addVariant} className="bg-[#ffc272] text-[#111213] px-2 py-1 rounded mt-1 hover:bg-[#d9a556]">Ajouter variante</button>
                     </div>
 
@@ -209,26 +272,31 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                     </button>
                 </form>
             )}
-
+            {/* === LISTE DES PRODUITS === */}
             <div className="mt-4">
                 {loading ? (
                     <p>Chargement...</p>
-                ) : showForm && products.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {Object.entries(
-                            products.reduce<Record<string, ProductWithVariants[]>>((acc, p) => {
-                                const catKey = p.category || "Sans catégorie";
-                                if (!acc[catKey]) acc[catKey] = [];
-                                acc[catKey].push(p);
-                                return acc;
-                            }, {})
-                        ).map(([category, catProducts]) => (
-                            <div key={category} className="bg-[#2a2b2c] p-3 rounded-2xl shadow">
-                                <h2 className="text-lg font-bold mb-2 text-[#ffc272]" style={{ fontFamily: "Barlow" }}>
-                                    {category}
-                                </h2>
+                ) : (
+                    !showForm &&
+                    products.length > 0 &&
+                    Object.entries(
+                        products.reduce<Record<string, ProductWithVariants[]>>((acc, p) => {
+                            const catKey = p.category || "Sans catégorie";
+                            if (!acc[catKey]) acc[catKey] = [];
+                            acc[catKey].push(p);
+                            return acc;
+                        }, {})
+                    ).map(([category, catProducts]) => (
+                        <div key={category} className="mb-4">
+                            <button
+                                onClick={() => toggleCategory(category)}
+                                className="text-lg font-bold mb-1 text-[#ffc272] flex justify-between px-2 py-1 rounded hover:bg-[#2a2b2c]"
+                            >
+                                {category} {openCategories[category] ? "▼" : "►"}
+                            </button>
 
-                                {Object.entries(
+                            {openCategories[category] &&
+                                Object.entries(
                                     catProducts.reduce<Record<string, ProductWithVariants[]>>((acc, p) => {
                                         const subKey = p.subcategory || "Sans sous-catégorie";
                                         if (!acc[subKey]) acc[subKey] = [];
@@ -236,47 +304,91 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                                         return acc;
                                     }, {})
                                 ).map(([subcategory, subProducts]) => (
-                                    <div key={subcategory} className="mb-2">
+                                    <div key={subcategory} className="mb-2 ml-3">
                                         {subcategory !== "Sans sous-catégorie" && (
                                             <button
                                                 onClick={() => toggleSubcategory(subcategory)}
-                                                className="w-full text-left text-sm font-semibold mb-1 text-[#ffc272] px-2 py-1 rounded hover:bg-[#1b1c1d]"
+                                                className=" text-left text-sm font-semibold mb-1 text-[#ffc272] px-2 py-1 rounded hover:bg-[#2a2b2c]"
                                             >
                                                 {subcategory} {openSubcategories[subcategory] ? "▼" : "►"}
                                             </button>
                                         )}
 
                                         {openSubcategories[subcategory] && (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-                                                {subProducts.map(p => (
-                                                    <div key={p.id} className="bg-[#1b1c1d] p-2 rounded-xl shadow flex flex-col">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <h4 className="text-sm font-semibold">{p.title}</h4>
-                                                            <div className="flex gap-1">
-                                                                <button onClick={() => handleEdit(p)} className="bg-blue-600 px-1 py-0.5 rounded hover:bg-blue-500 text-white text-xs">✎</button>
-                                                                <button onClick={() => handleDelete(p.id)} className="bg-red-600 px-1 py-0.5 rounded hover:bg-red-500 text-white text-xs">🗑</button>
-                                                            </div>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                {subProducts.map((p) => (
+                                                    <div
+                                                        key={p.id}
+                                                        className="relative bg-[#2a2b2c] p-3 rounded-xl w-full shadow mb-2 flex gap-3"
+                                                    >
+                                                        {/* Boutons actions en haut à droite */}
+                                                        <div className="absolute top-2 right-2 flex gap-2">
+                                                            <button
+                                                                onClick={() => handleEdit(p)}
+                                                                className="bg-blue-600 px-2 py-0.5 rounded hover:bg-blue-500 text-white text-sm"
+                                                                title="Modifier"
+                                                            >
+                                                                ✎
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(p.id)}
+                                                                className="bg-red-600 px-2 py-0.5 rounded hover:bg-red-500 text-white text-sm"
+                                                                title="Supprimer"
+                                                            >
+                                                                🗑
+                                                            </button>
                                                         </div>
-                                                        <p className="text-xs text-[#ffc272]/80 mb-1">Prix: €{p.price}</p>
-                                                        {p.variants?.length! > 0 && (
-                                                            <div className="flex flex-wrap gap-1 mt-1">
-                                                                {p.variants!.map((v, idx) => (
-                                                                    <span key={idx} className="text-[10px] bg-[#ffc272]/20 text-[#ffc272] px-1 py-0.5 rounded">
-                                                                        {v.taille} / {v.poids}kg / {v.quantity}pcs / {v.promotion}%
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
+
+                                                        {/* Image produit */}
+                                                        <img
+                                                            src={p.image_url}
+                                                            alt={p.title}
+                                                            className="w-16 h-16 object-cover rounded"
+                                                        />
+
+                                                        {/* Contenu produit */}
+                                                        <div className="flex flex-col gap-1 pr-16">
+                                                            <h4 className="font-semibold text-[#ffc272] text-lg">
+                                                                {p.title}
+                                                            </h4>
+                                                            <p className="text-[#ffc272]/80 font-medium">
+                                                                Prix de base : €{p.price}
+                                                            </p>
+
+                                                            {/* Variantes */}
+                                                            {p.variants?.length! > 0 && (
+                                                                <div className="mt-2 flex flex-col gap-1 text-sm text-[#ffc272]/80">
+                                                                    {p.variants!.map((v, index) => {
+                                                                        const basePrice = Number(p.price) || 0;
+                                                                        const discount = Number(v.promotion) || 0;
+                                                                        const finalPrice = (basePrice * (1 - discount / 100)).toFixed(2);
+
+                                                                        return (
+                                                                            <div
+                                                                                key={index}
+                                                                                className="bg-[#1b1c1d] rounded px-2 py-1 flex flex-wrap gap-3"
+                                                                            >
+                                                                                <span><strong>Taille :</strong> {v.taille || "-"}</span>
+                                                                                <span><strong>Poids :</strong> {v.poids} kg</span>
+                                                                                <span><strong>Qté :</strong> {v.quantity}</span>
+                                                                                <span><strong>Promo :</strong> {v.promotion}%</span>
+                                                                                <span><strong>Prix final :</strong> €{finalPrice}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 ))}
+
                                             </div>
                                         )}
                                     </div>
                                 ))}
-                            </div>
-                        ))}
-                    </div>
-                ) : null}
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     );

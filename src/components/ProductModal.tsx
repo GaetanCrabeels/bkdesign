@@ -121,7 +121,6 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
                     title: product.title,
                     price: product.price,
                     qty,
-                    variantKey: selectedVariant.taille,
                     variant: selectedVariant,
                   };
                   onAdd(cartItem);

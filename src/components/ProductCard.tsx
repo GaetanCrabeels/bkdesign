@@ -51,7 +51,6 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
       title: product.title,
       price: product.price,
       qty: 1,
-      variantKey: selectedVariant.taille,
       variant: selectedVariant,
     };
 

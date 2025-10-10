@@ -51,10 +51,11 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
       alert(error.message);
     } else {
       setShowLogin(false);
+      window.location.reload();
+
     }
   };
 
-  // Sign-up handler
   // Sign-up handler
 const handleSignUp = async (e: React.FormEvent) => {
   e.preventDefault();

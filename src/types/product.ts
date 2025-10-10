@@ -31,6 +31,5 @@ export interface CartItem {
   title: string;
   price: number;        // Prix calculé selon promo si applicable
   qty: number;
-  variantKey?: string;  // taille ou id variante pour différencier les variantes
   variant?: ProductVariant; // Variante complète pour calcul du prix/promo
 }
