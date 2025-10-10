@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, lazy, Suspense } from "react";
-import { Product, CartItem } from "../types/product";
+import { Product } from "../types/product";
 import { Header } from "../components/Header";
 import { AutoCarousel } from "../components/Carousel";
-import { supabase } from "../lib/supabaseClient";
 import { Footer } from "../components/Footer";
+import { useCart } from "../components/useCart";
+import { supabase } from "../lib/supabaseClient";
 
-// ✅ Lazy loading pour réduire le bundle initial
 const ProductModal = lazy(() => import("../components/ProductModal"));
 const CartModal = lazy(() => import("../components/CartModal"));
 const ProductCarousel = lazy(() => import("../components/ProductCarousel"));
@@ -15,22 +15,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
 
-  // ✅ Préchargement du logo pour éviter flash
-  useEffect(() => {
-    const preload = document.createElement("link");
-    preload.rel = "preload";
-    preload.as = "image";
-    preload.href = "/logo/bkdesignlogo.png";
-    document.head.appendChild(preload);
-  }, []);
+  const { cart, addToCart, updateCart } = useCart();
 
-  // ✅ Fetch produits depuis Supabase
+  // 🔹 Fetch produits
   useEffect(() => {
     let mounted = true;
-    async function fetchProducts() {
+    const fetchProducts = async () => {
       setLoading(true);
       try {
         const { data, error } = await supabase.from("products").select("*");
@@ -40,41 +32,24 @@ export default function Home() {
       } finally {
         if (mounted) setLoading(false);
       }
-    }
-    fetchProducts();
-    return () => {
-      mounted = false;
     };
+    fetchProducts();
+    return () => { mounted = false; };
   }, []);
 
-  // ✅ Filtrage mémoïsé pour éviter re-renders inutiles
+  // 🔹 Filtrage
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return products;
     return products.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q)
+      p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
     );
   }, [query, products]);
 
-  // ✅ Ajout au panier
-  function addToCart(item: CartItem) {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.id === item.id ? { ...i, qty: i.qty + item.qty } : i
-        );
-      }
-      return [...prev, item];
-    });
-  }
-
-  const categories = Array.from(new Set(filtered.map((p) => p.category))).sort();
+  const categories = Array.from(new Set(filtered.map(p => p.category))).sort();
 
   return (
-    <div className="min-h-screen  bg-[#111213] text-[#ffc272]">
+    <div className="min-h-screen bg-[#111213] text-[#ffc272]">
       <Header
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
         onOpenCart={() => setCartOpen(true)}
@@ -116,41 +91,30 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ✅ Liste produits par catégories */}
         <main className="px-4 py-8 sm:py-16 space-y-12">
-          {loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-72 bg-[#1b1c1d] animate-pulse rounded-lg" />
-              ))}
-            </div>
-          )}
+          {loading && <div>Chargement...</div>}
 
-          {!loading &&
-            categories.map((cat) => {
-              const productsInCat = filtered.filter((p) => p.category === cat);
-              if (!productsInCat.length) return null;
-              return (
-                <div key={cat} className="space-y-6">
-                  <h2 className="text-3xl sm:text-4xl md:text-6xl text-center mb-10">{cat}</h2>
-                  <Suspense fallback={<div className="h-64 bg-[#1b1c1d] animate-pulse rounded-xl" />}>
-                    <ProductCarousel
-                      products={productsInCat}
-                      onOpen={(p) => setSelectedProduct(p)}
-                      onAdd={addToCart}
-                    />
-                  </Suspense>
-                </div>
-              );
-            })}
+          {!loading && categories.map(cat => {
+            const productsInCat = filtered.filter(p => p.category === cat);
+            if (!productsInCat.length) return null;
+            return (
+              <div key={cat} className="space-y-6">
+                <h2 className="text-3xl sm:text-4xl md:text-6xl text-center mb-10">{cat}</h2>
+                <Suspense fallback={<div className="h-64 bg-[#1b1c1d] animate-pulse rounded-xl" />}>
+                  <ProductCarousel
+                    products={productsInCat}
+                    onOpen={p => setSelectedProduct(p)}
+                    onAdd={addToCart}
+                  />
+                </Suspense>
+              </div>
+            );
+          })}
 
-          {!loading && filtered.length === 0 && (
-            <p className="text-center text-[#d6b98d]">Aucun produit trouvé.</p>
-          )}
+          {!loading && filtered.length === 0 && <p className="text-center text-[#d6b98d]">Aucun produit trouvé.</p>}
         </main>
       </div>
 
-      {/* ✅ Modals chargés en lazy */}
       {selectedProduct && (
         <Suspense fallback={null}>
           <ProductModal
@@ -166,8 +130,9 @@ export default function Home() {
           <CartModal
             items={cart}
             onClose={() => setCartOpen(false)}
-            onUpdateCart={setCart} // 🔹 le state est mis à jour ici
-          />         </Suspense>
+            onUpdateCart={updateCart}
+          />
+        </Suspense>
       )}
 
       <Footer />

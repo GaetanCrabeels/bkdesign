@@ -8,7 +8,7 @@ export default function Error() {
           Veuillez réessayer ou contacter le support.
         </p>
         <a
-          href="/"
+          href="/shop/"
           className="inline-block bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 transition"
         >
           Retour au panier

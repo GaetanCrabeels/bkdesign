@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, lazy } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Product, CartItem } from "../types/product";
+import { Product } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductCard } from "../components/ProductCard";
 import { AdminProductForm } from "../components/AdminProductForm";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { Footer } from "../components/Footer";
+import { useCart } from "../components/useCart";
 
 const ProductModal = lazy(() => import("../components/ProductModal"));
 const CartModal = lazy(() => import("../components/CartModal"));
@@ -15,9 +16,7 @@ export default function Produits() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
@@ -26,6 +25,8 @@ export default function Produits() {
   const [searchParams] = useSearchParams();
   const params = useParams();
   const navigate = useNavigate();
+
+  const { cart, addToCart, updateCart } = useCart();
 
   // --- URL → catégories / sous-catégories
   useEffect(() => {
@@ -48,34 +49,14 @@ export default function Produits() {
       const userId = userData.user.id;
       const { data, error } = await supabase
         .from("profiles")
-        .select("role, panier")
+        .select("role")
         .eq("id", userId)
         .single();
 
-      if (!error) {
-        setUserRole(data?.role);
-        if (data?.panier) setCart(data.panier);
-      }
+      if (!error) setUserRole(data?.role);
     }
     fetchUserRole();
   }, []);
-
-  // --- Sauvegarde panier
-  useEffect(() => {
-    async function saveCart() {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-
-      const userId = userData.user.id;
-
-      await supabase
-        .from("profiles")
-        .update({ panier: cart })
-        .eq("id", userId);
-    }
-
-    if (cart.length > 0) saveCart();
-  }, [cart]);
 
   // --- Fetch produits
   useEffect(() => {
@@ -88,16 +69,6 @@ export default function Produits() {
     }
     fetchProducts();
   }, []);
-
-  function addToCart(item: CartItem) {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
-      if (existing) {
-        return prev.map((i) => i.id === item.id ? { ...i, qty: i.qty + item.qty } : i);
-      }
-      return [...prev, item];
-    });
-  }
 
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category).filter(Boolean))), [products]);
   const subcategories = useMemo(
@@ -128,7 +99,7 @@ export default function Produits() {
     <div className="min-h-screen bg-[#111213] text-[#ffc272]">
       <Header
         cartCount={cart.reduce((s, i) => s + i.qty, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
+        onOpenCart={() => setCartOpen(true)}
         query={query}
         setQuery={setQuery}
         categories={categories}
@@ -200,10 +171,10 @@ export default function Produits() {
         )}
       </div>
 
-      {isCartOpen && <CartModal
+      {cartOpen && <CartModal
         items={cart}
-        onClose={() => setIsCartOpen(false)}
-        onUpdateCart={setCart} // 🔹 le state est mis à jour ici
+        onClose={() => setCartOpen(false)}
+        onUpdateCart={updateCart}
       />}
       <Footer />
     </div>

@@ -7,7 +7,7 @@ export default function Cancel() {
           Vous avez annulé le processus de livraison BPOST. Votre panier reste intact.
         </p>
         <a
-          href="/"
+          href="/shop/"
           className="inline-block bg-yellow-600 text-white px-6 py-2 rounded hover:bg-yellow-700 transition"
         >
           Retour au panier

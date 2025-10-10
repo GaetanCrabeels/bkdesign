@@ -12,6 +12,7 @@ function RedirectTo404() {
 
 export default function App() {
   return (
+
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/produits" element={<Produits />} />
@@ -23,5 +24,6 @@ export default function App() {
       <Route path="*" element={<RedirectTo404 />} />
 
     </Routes>
+
   );
 }

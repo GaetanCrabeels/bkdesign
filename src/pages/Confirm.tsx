@@ -7,7 +7,7 @@ export default function Confirm() {
           Votre commande a été validée avec succès via BPOST.
         </p>
         <a
-          href="/"
+          href="/shop/"
           className="inline-block bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 transition"
         >
           Retour à l’accueil

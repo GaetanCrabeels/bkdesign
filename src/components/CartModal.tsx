@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CartItem } from "../types/product";
-import crypto from "crypto";
+import { supabase } from "../lib/supabaseClient";
 
 interface CartModalProps {
   items: CartItem[];
@@ -9,8 +9,49 @@ interface CartModalProps {
 }
 
 export default function CartModal({ items, onClose, onUpdateCart }: CartModalProps) {
+  const [user, setUser] = useState<any>(null);
   const [shippingMethod, setShippingMethod] = useState<string | null>(null);
   const [shippingCost, setShippingCost] = useState(0);
+
+  // 🔹 Auth + récupération du panier
+  useEffect(() => {
+    const initUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("panier")
+          .eq("id", session.user.id)
+          .single();
+
+        if (data?.panier) onUpdateCart(data.panier);
+      }
+    };
+
+    initUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // 🔹 Sauvegarder le panier dans Supabase
+  const saveCart = async (updatedItems: CartItem[]) => {
+    if (!user) return;
+    await supabase
+      .from("profiles")
+      .update({ panier: updatedItems })
+      .eq("id", user.id);
+  };
+
+  const updateCart = async (updatedItems: CartItem[]) => {
+    onUpdateCart(updatedItems);
+    await saveCart(updatedItems);
+  };
 
   // 🔹 Total panier sans livraison
   const total = items.reduce((acc, item) => {
@@ -18,25 +59,24 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     const price = promo > 0 ? item.price * (1 - promo / 100) : item.price;
     return acc + price * item.qty;
   }, 0);
-
   const totalWithShipping = total + shippingCost;
 
   // 🔹 Gestion quantité et suppression
-  const increaseQty = (id: string) => {
+  const increaseQty = async (id: string) => {
     const updated = items.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i);
-    onUpdateCart(updated);
+    await updateCart(updated);
   };
 
-  const decreaseQty = (id: string) => {
+  const decreaseQty = async (id: string) => {
     const updated = items
       .map(i => i.id === id ? { ...i, qty: i.qty - 1 } : i)
-      .filter(i => i.qty > 0); // supprime si qty = 0
-    onUpdateCart(updated);
+      .filter(i => i.qty > 0);
+    await updateCart(updated);
   };
 
-  const removeItem = (id: string) => {
+  const removeItem = async (id: string) => {
     const updated = items.filter(i => i.id !== id);
-    onUpdateCart(updated);
+    await updateCart(updated);
   };
 
   // 🔹 Checkout Stripe
@@ -50,31 +90,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     const data = await res.json();
     if (data.url) window.location.href = data.url;
     else alert("Erreur lors de la création de la session Stripe");
-  };
-
-  // 🔹 Génération checksum SHA-256 (pour BPOST)
-  const generateBpostChecksum = (params: Record<string, string>, passphrase: string) => {
-    const hashFields = [
-      "accountId",
-      "costCenter",
-      "customerCountry",
-      "deliveryMethodOverrides",
-      "extraSecure",
-      "orderLine",
-      "orderReference",
-      "orderTotalPrice",
-      "orderWeight",
-    ];
-
-    const filtered: Record<string, string> = {};
-    for (const key of hashFields) {
-      if (params[key] !== undefined) filtered[key] = params[key];
-    }
-
-    const sortedKeys = Object.keys(filtered).sort();
-    const concatenated = sortedKeys.map(k => `${k}=${filtered[k]}`).join("&") + `&${passphrase}`;
-
-    return crypto.createHash("sha256").update(concatenated, "utf8").digest("hex");
   };
 
   // 🔹 Popup BPOST
@@ -106,7 +121,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     form.submit();
     document.body.removeChild(form);
     setShippingMethod("BPOST");
-    setShippingCost(params.shippingCost || 0); // mettre à jour si serveur renvoie le coût
+    setShippingCost(params.shippingCost || 0);
   };
 
   return (
