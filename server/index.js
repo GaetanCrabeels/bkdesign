@@ -77,7 +77,7 @@ app.post("/bpost/get-shm-params", (req, res) => {
   const params = {
     accountId: process.env.BPOST_ACCOUNT_ID,
     action: "START",
-    customerCountry: "BE",
+    customerCountry: "EU",
     orderReference,
     orderWeight, // ajout du poids
   };
