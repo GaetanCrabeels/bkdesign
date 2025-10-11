@@ -93,59 +93,59 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
   };
 
   // 🔹 BPOST popup + confirmation
- const handleBpost = async () => {
-  if (!deliveryConfirmed) {
-    // Ouvrir popup pour choisir la livraison
-    const res = await fetch("https://bkdesign.onrender.com/bpost/get-shm-params", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items, country }),
-    });
+  // 🔹 BPOST popup + confirmation
+  const handleBpost = async () => {
+    if (!deliveryConfirmed) {
+      // Ouvrir popup pour choisir la livraison
+      const res = await fetch("https://bkdesign.onrender.com/bpost/get-shm-params", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, country }),
+      });
 
-    const params = await res.json();
+      const params = await res.json();
 
-    const popup = window.open("", "BPOST", "width=1024,height=768");
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "https://shippingmanager.bpost.be/ShmFrontEnd/start";
-    form.target = popup!.name;
+      const popup = window.open("", "BPOST", "width=1024,height=768");
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "https://shippingmanager.bpost.be/ShmFrontEnd/start";
+      form.target = popup!.name;
 
-    Object.entries(params).forEach(([k, v]) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = k;
-      input.value = String(v);
-      form.appendChild(input);
-    });
+      Object.entries(params).forEach(([k, v]) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = k;
+        input.value = String(v);
+        form.appendChild(input);
+      });
 
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
 
-    // ⚡ Attendre que l'utilisateur confirme la livraison via popup
-    // Ici on écoute le serveur pour récupérer le shippingCost réel
-    // On fait un poll simple toutes les 1-2s pour vérifier si la livraison est confirmée
-    const checkShippingCost = setInterval(async () => {
-      try {
-        const confirmRes = await fetch(`https://bkdesign.onrender.com/bpost/confirm?orderReference=${params.orderReference}`);
-        const data = await confirmRes.json();
+      // ⚡ Poll toutes les 1.5s jusqu'à réception des frais
+      const checkShippingCost = setInterval(async () => {
+        try {
+          const confirmRes = await fetch(
+            `https://bkdesign.onrender.com/bpost/get-shipping?orderReference=${params.orderReference}`
+          );
 
-        if (data.shippingCost !== undefined) {
-          setShippingCost(data.shippingCost);
-          setShippingMethod("BPOST");
-          setDeliveryConfirmed(true);
-          clearInterval(checkShippingCost); // stop le polling
+          if (confirmRes.ok) {
+            const data = await confirmRes.json();
+            setShippingCost(data.shippingCost);
+            setShippingMethod("BPOST");
+            setDeliveryConfirmed(true);
+            clearInterval(checkShippingCost);
+          }
+        } catch (err) {
+          console.error("Erreur lors de la récupération des frais BPOST :", err);
         }
-      } catch (err) {
-        console.error("Erreur lors de la récupération des frais BPOST :", err);
-      }
-    }, 1500);
-
-  } else {
-    // La livraison est déjà confirmée → lancer Stripe
-    handleCheckout();
-  }
-};
+      }, 1500);
+    } else {
+      // La livraison est déjà confirmée → lancer Stripe
+      handleCheckout();
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-end z-50">

@@ -11,6 +11,10 @@ app.use(express.json());
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
+// ⚡ Stockage temporaire en mémoire pour les frais BPOST
+// (en prod : stocker ça dans Redis ou une DB)
+const orders = {};
+
 /* -------------------------------------------------------------------------- */
 /*                               BPOST SHIPPING                               */
 /* -------------------------------------------------------------------------- */
@@ -28,19 +32,20 @@ function generateBpostChecksum(params, passphrase) {
   if (params.deliveryMethodsOverrides) fieldsToInclude.deliveryMethodsOverrides = params.deliveryMethodsOverrides;
   if (params.extraSecure) fieldsToInclude.extraSecure = params.extraSecure;
 
-  const concatenated = Object.keys(fieldsToInclude)
-    .sort()
-    .map(k => `${k}=${fieldsToInclude[k]}`)
-    .join("&") + `&${passphrase}`;
+  const concatenated =
+    Object.keys(fieldsToInclude)
+      .sort()
+      .map((k) => `${k}=${fieldsToInclude[k]}`)
+      .join("&") + `&${passphrase}`;
 
   return crypto.createHash("sha256").update(concatenated, "utf8").digest("hex");
 }
 
-// 🔹 Endpoint pour BPOST : récupérer les paramètres pour le popup
+// ✅ Récupération des params pour popup BPOST
 app.post("/bpost/get-shm-params", (req, res) => {
   const { items, country } = req.body;
 
-  const orderReference = Date.now(); // ou générer un ID unique
+  const orderReference = Date.now(); // ou un UUID
   const orderWeight = items.reduce((total, item) => {
     const weight = item.variant?.poids || 0;
     return total + weight * item.qty;
@@ -52,22 +57,40 @@ app.post("/bpost/get-shm-params", (req, res) => {
     customerCountry: country || "BE",
     orderReference,
     orderWeight,
-    // ⚡ Ici tu peux éventuellement ajouter costCenter ou extraSecure
   };
 
   params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
 
+  // ⚠️ Préparer un slot dans notre mémoire pour récupérer les frais plus tard
+  orders[orderReference] = { shippingCost: null };
+
   res.json(params);
 });
 
-// 🔹 Endpoint pour recevoir la confirmation BPOST et frais de livraison
+// ✅ Confirmation BPOST (appelé par BPOST)
 app.post("/bpost/confirm", (req, res) => {
   const { orderReference, deliveryMethodPriceTotal } = req.body;
 
-  // stocke le montant réel pour ce orderReference (en mémoire, DB ou cache)
-  orders[orderReference] = { shippingCost: deliveryMethodPriceTotal / 100 };
+  console.log("📦 BPOST CONFIRM reçu :", req.body);
 
-  res.send("OK"); // BPOST attend un 200
+  // ⚡ Stocker les frais reçus
+  orders[orderReference] = {
+    shippingCost: deliveryMethodPriceTotal / 100,
+  };
+
+  res.send("OK");
+});
+
+// ✅ Endpoint pour récupérer les frais stockés depuis le front
+app.get("/bpost/get-shipping", (req, res) => {
+  const { orderReference } = req.query;
+  const order = orders[orderReference];
+
+  if (!order || order.shippingCost === null) {
+    return res.status(404).json({ message: "Frais non encore disponibles" });
+  }
+
+  res.json(order);
 });
 
 /* -------------------------------------------------------------------------- */
@@ -90,7 +113,7 @@ app.post("/create-checkout-session", async (req, res) => {
       };
     });
 
-    // ⚡ Ajouter les frais de livraison comme un article
+    // Ajouter les frais de livraison
     if (shippingCost > 0) {
       line_items.push({
         price_data: {
@@ -108,7 +131,7 @@ app.post("/create-checkout-session", async (req, res) => {
       mode: "payment",
       customer_email: customerEmail,
       success_url: `${process.env.CLIENT_URL}/confirm`,
-      cancel_url: `${process.env.CLIENT_URL}/error}`,
+      cancel_url: `${process.env.CLIENT_URL}/error`,
     });
 
     res.json({ url: session.url });
