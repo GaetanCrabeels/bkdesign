@@ -90,6 +90,8 @@ const handleSignUp = async (e: React.FormEvent) => {
   // Logout handler
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    window.location.reload();
+
     setShowLogoutModal(false);
   };
 
