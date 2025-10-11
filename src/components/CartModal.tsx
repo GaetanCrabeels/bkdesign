@@ -38,6 +38,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
     return () => listener.subscription.unsubscribe();
   }, []);
+  const [country, setCountry] = useState<string>("BE"); // BE par défaut
 
   // 🔹 Sauvegarder le panier dans Supabase
   const saveCart = async (updatedItems: CartItem[]) => {
@@ -97,7 +98,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     const res = await fetch("https://bkdesign.onrender.com/bpost/get-shm-params", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items, country }),
     });
 
     const params = await res.json();
@@ -120,6 +121,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
+
     setShippingMethod("BPOST");
     setShippingCost(params.shippingCost || 0);
   };
@@ -145,6 +147,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
                   <li key={item.id} className="flex flex-col py-2 border-b border-[#2a2b2c]">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">{item.title}</span>
+
                       <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700">✕</button>
                     </div>
                     {item.variant?.taille && <span>Taille : {item.variant.taille}</span>}
@@ -170,7 +173,19 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
                 );
               })}
             </ul>
-
+            <div className="mb-4">
+              <span className="text-white mr-2">Choisir le pays :</span>
+              {["BE", "FR", "LU", "NL"].map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCountry(c)}
+                  className={`px-2 py-1 m-1 rounded ${country === c ? "bg-[#ffc272] text-black" : "bg-[#2a2b2c] text-white"
+                    }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
             <div className="mt-4">
               <button
                 onClick={openBpostPopup}
