@@ -75,12 +75,13 @@ app.post("/bpost/get-shm-params", (req, res) => {
 
   // Préparer les paramètres BPOST
   const params = {
-    accountId: process.env.BPOST_ACCOUNT_ID,
-    action: "START",
-    customerCountry: "EU",
-    orderReference,
-    orderWeight, // ajout du poids
-  };
+  accountId: process.env.BPOST_ACCOUNT_ID,
+  action: "START",
+  customerCountry: req.body.country || "BE", // ⚡ valeur envoyée par le front
+  orderReference,
+  orderWeight,
+};
+
 
   // Optionnel : costCenter
   if (costCenter) {
