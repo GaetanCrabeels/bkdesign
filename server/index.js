@@ -19,21 +19,28 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 /* -------------------------------------------------------------------------- */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, customerEmail } = req.body;
 
-    const line_items = items.map((item) => ({
-      price_data: {
-        currency: "eur",
-        product_data: { name: item.title },
-        unit_amount: item.price * 100, // montant en centimes
-      },
-      quantity: item.qty,
-    }));
+    const line_items = items.map((item) => {
+      // Prix avec promo
+      const promotion = item.variant?.promotion || 0;
+      const priceWithPromo = item.price * (1 - promotion / 100);
+
+      return {
+        price_data: {
+          currency: "eur",
+          product_data: { name: item.title },
+          unit_amount: Math.round(priceWithPromo * 100), // ⚡ en centimes
+        },
+        quantity: item.qty,
+      };
+    });
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
+      customer_email: customerEmail, // Stripe envoie un mail automatique
       success_url: `${process.env.CLIENT_URL}/confirm`,
       cancel_url: `${process.env.CLIENT_URL}`,
     });
@@ -41,9 +48,10 @@ app.post("/create-checkout-session", async (req, res) => {
     res.json({ url: session.url });
   } catch (error) {
     console.error("❌ Stripe error:", error);
-    res.status(500).json({ error: "Erreur lors de la création de la session Stripe, Montant insuffisant" });
+    res.status(500).json({ error: "Erreur lors de la création de la session Stripe" });
   }
 });
+
 
 /* -------------------------------------------------------------------------- */
 /*                               BPOST SHIPPING                               */
