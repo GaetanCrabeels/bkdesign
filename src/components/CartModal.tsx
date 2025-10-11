@@ -10,11 +10,11 @@ interface CartModalProps {
 
 export default function CartModal({ items, onClose, onUpdateCart }: CartModalProps) {
   const [user, setUser] = useState<any>(null);
-  const [country, setCountry] = useState<string>("BE"); // BE par défaut
+  const [country, setCountry] = useState<string>("BE");
   const [shippingMethod, setShippingMethod] = useState<string | null>(null);
   const [shippingCost, setShippingCost] = useState(0);
+  const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
 
-  // 🔹 Auth + récupération du panier
   useEffect(() => {
     const initUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -53,24 +53,25 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     await saveCart(updatedItems);
   };
 
-  // 🔹 Total panier sans livraison
   const total = items.reduce((acc, item) => {
     const promo = item.variant?.promotion || 0;
     const price = promo > 0 ? item.price * (1 - promo / 100) : item.price;
     return acc + price * item.qty;
   }, 0);
+
   const totalWithShipping = total + shippingCost;
 
-  // 🔹 Gestion quantité et suppression
   const increaseQty = async (id: string) => {
     const updated = items.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i);
     await updateCart(updated);
   };
+
   const decreaseQty = async (id: string) => {
     const updated = items.map(i => i.id === id ? { ...i, qty: i.qty - 1 } : i)
       .filter(i => i.qty > 0);
     await updateCart(updated);
   };
+
   const removeItem = async (id: string) => {
     const updated = items.filter(i => i.id !== id);
     await updateCart(updated);
@@ -91,8 +92,10 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     else alert("Erreur lors de la création de la session Stripe");
   };
 
-  // 🔹 Popup BPOST
-  const openBpostPopup = async () => {
+  // 🔹 BPOST popup + confirmation
+ const handleBpost = async () => {
+  if (!deliveryConfirmed) {
+    // Ouvrir popup pour choisir la livraison
     const res = await fetch("https://bkdesign.onrender.com/bpost/get-shm-params", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -119,9 +122,30 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     form.submit();
     document.body.removeChild(form);
 
-    setShippingMethod("BPOST");
-    setShippingCost(params.deliveryMethodPriceTotal ? params.deliveryMethodPriceTotal / 100 : 0); 
-  };
+    // ⚡ Attendre que l'utilisateur confirme la livraison via popup
+    // Ici on écoute le serveur pour récupérer le shippingCost réel
+    // On fait un poll simple toutes les 1-2s pour vérifier si la livraison est confirmée
+    const checkShippingCost = setInterval(async () => {
+      try {
+        const confirmRes = await fetch(`https://bkdesign.onrender.com/bpost/confirm?orderReference=${params.orderReference}`);
+        const data = await confirmRes.json();
+
+        if (data.shippingCost !== undefined) {
+          setShippingCost(data.shippingCost);
+          setShippingMethod("BPOST");
+          setDeliveryConfirmed(true);
+          clearInterval(checkShippingCost); // stop le polling
+        }
+      } catch (err) {
+        console.error("Erreur lors de la récupération des frais BPOST :", err);
+      }
+    }, 1500);
+
+  } else {
+    // La livraison est déjà confirmée → lancer Stripe
+    handleCheckout();
+  }
+};
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-end z-50">
@@ -136,10 +160,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
             <ul className="overflow-y-auto space-y-2 flex-1">
               {items.map(item => {
                 const promo = item.variant?.promotion || 0;
-                const price = promo > 0
-                  ? (item.price * (1 - promo / 100)).toFixed(2)
-                  : item.price.toFixed(2);
-
+                const price = promo > 0 ? (item.price * (1 - promo / 100)).toFixed(2) : item.price.toFixed(2);
                 return (
                   <li key={item.id} className="flex flex-col py-2 border-b border-[#2a2b2c]">
                     <div className="flex justify-between items-center">
@@ -149,19 +170,9 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
                     {item.variant?.taille && <span>Taille : {item.variant.taille}</span>}
                     <div className="flex items-center justify-between mt-1">
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => decreaseQty(item.id)}
-                          className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]"
-                        >
-                          -
-                        </button>
+                        <button onClick={() => decreaseQty(item.id)} className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]">-</button>
                         <span>{item.qty}</span>
-                        <button
-                          onClick={() => increaseQty(item.id)}
-                          className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]"
-                        >
-                          +
-                        </button>
+                        <button onClick={() => increaseQty(item.id)} className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]">+</button>
                       </div>
                       <span>{price} €</span>
                     </div>
@@ -170,7 +181,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
               })}
             </ul>
 
-            {/* Sélecteur de pays */}
             <div className="mb-4">
               <span className="text-white mr-2">Choisir le pays :</span>
               {["BE", "FR", "LU", "NL"].map((c) => (
@@ -186,10 +196,10 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
             <div className="mt-4">
               <button
-                onClick={openBpostPopup}
+                onClick={handleBpost}
                 className="bg-[#ffc272] text-black p-2 rounded hover:bg-[#e6aa50] transition w-full"
               >
-                Choisir la livraison BPOST
+                {deliveryConfirmed ? "Passer au paiement" : "Choisir la livraison BPOST"}
               </button>
               {shippingMethod && (
                 <p className="text-white mt-2 text-sm">
@@ -202,13 +212,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
               <span className="text-lg">Total :</span>
               <span className="text-lg font-bold">{totalWithShipping.toFixed(2)} €</span>
             </div>
-
-            <button
-              onClick={handleCheckout}
-              className="bg-[#ffc272] text-black mt-4 p-2 rounded hover:bg-[#e6aa50] transition w-full"
-            >
-              Passer à la caisse
-            </button>
           </>
         )}
       </div>

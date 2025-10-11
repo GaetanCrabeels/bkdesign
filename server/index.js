@@ -62,10 +62,12 @@ app.post("/bpost/get-shm-params", (req, res) => {
 
 // 🔹 Endpoint pour recevoir la confirmation BPOST et frais de livraison
 app.post("/bpost/confirm", (req, res) => {
-  const { deliveryMethodPriceTotal } = req.body;
-  res.json({
-    shippingCost: deliveryMethodPriceTotal ? deliveryMethodPriceTotal / 100 : 0
-  });
+  const { orderReference, deliveryMethodPriceTotal } = req.body;
+
+  // stocke le montant réel pour ce orderReference (en mémoire, DB ou cache)
+  orders[orderReference] = { shippingCost: deliveryMethodPriceTotal / 100 };
+
+  res.send("OK"); // BPOST attend un 200
 });
 
 /* -------------------------------------------------------------------------- */
@@ -106,7 +108,7 @@ app.post("/create-checkout-session", async (req, res) => {
       mode: "payment",
       customer_email: customerEmail,
       success_url: `${process.env.CLIENT_URL}/confirm`,
-      cancel_url: `${process.env.CLIENT_URL}`,
+      cancel_url: `${process.env.CLIENT_URL}/error}`,
     });
 
     res.json({ url: session.url });
