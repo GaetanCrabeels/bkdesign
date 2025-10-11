@@ -5,42 +5,106 @@ import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
 
-// 🧾 Initialisation Express
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 💳 Initialisation Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
+
+/* -------------------------------------------------------------------------- */
+/*                               BPOST SHIPPING                               */
+/* -------------------------------------------------------------------------- */
+
+function generateBpostChecksum(params, passphrase) {
+  const fieldsToInclude = {
+    accountId: params.accountId,
+    action: "START",
+    customerCountry: params.customerCountry,
+    orderReference: params.orderReference,
+  };
+
+  if (params.costCenter) fieldsToInclude.costCenter = params.costCenter;
+  if (params.orderWeight) fieldsToInclude.orderWeight = params.orderWeight;
+  if (params.deliveryMethodsOverrides) fieldsToInclude.deliveryMethodsOverrides = params.deliveryMethodsOverrides;
+  if (params.extraSecure) fieldsToInclude.extraSecure = params.extraSecure;
+
+  const concatenated = Object.keys(fieldsToInclude)
+    .sort()
+    .map(k => `${k}=${fieldsToInclude[k]}`)
+    .join("&") + `&${passphrase}`;
+
+  return crypto.createHash("sha256").update(concatenated, "utf8").digest("hex");
+}
+
+// 🔹 Endpoint pour BPOST : récupérer les paramètres pour le popup
+app.post("/bpost/get-shm-params", (req, res) => {
+  const { items, country } = req.body;
+
+  const orderReference = Date.now(); // ou générer un ID unique
+  const orderWeight = items.reduce((total, item) => {
+    const weight = item.variant?.poids || 0;
+    return total + weight * item.qty;
+  }, 0);
+
+  const params = {
+    accountId: process.env.BPOST_ACCOUNT_ID,
+    action: "START",
+    customerCountry: country || "BE",
+    orderReference,
+    orderWeight,
+    // ⚡ Ici tu peux éventuellement ajouter costCenter ou extraSecure
+  };
+
+  params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
+
+  res.json(params);
 });
+
+// 🔹 Endpoint pour recevoir la confirmation BPOST et frais de livraison
+app.post("/bpost/confirm", (req, res) => {
+  const { deliveryMethodPriceTotal } = req.body;
+  res.json({
+    shippingCost: deliveryMethodPriceTotal ? deliveryMethodPriceTotal / 100 : 0
+  });
+});
+
 /* -------------------------------------------------------------------------- */
 /*                               STRIPE CHECKOUT                              */
 /* -------------------------------------------------------------------------- */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items, customerEmail } = req.body;
+    const { items, customerEmail, shippingCost } = req.body;
 
     const line_items = items.map((item) => {
-      // Prix avec promo
-      const promotion = item.variant?.promotion || 0;
-      const priceWithPromo = item.price * (1 - promotion / 100);
-
+      const promo = item.variant?.promotion || 0;
+      const priceWithPromo = item.price * (1 - promo / 100);
       return {
         price_data: {
           currency: "eur",
           product_data: { name: item.title },
-          unit_amount: Math.round(priceWithPromo * 100), // ⚡ en centimes
+          unit_amount: Math.round(priceWithPromo * 100),
         },
         quantity: item.qty,
       };
     });
 
+    // ⚡ Ajouter les frais de livraison comme un article
+    if (shippingCost > 0) {
+      line_items.push({
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Frais de livraison" },
+          unit_amount: Math.round(shippingCost * 100),
+        },
+        quantity: 1,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
-      customer_email: customerEmail, // Stripe envoie un mail automatique
+      customer_email: customerEmail,
       success_url: `${process.env.CLIENT_URL}/confirm`,
       cancel_url: `${process.env.CLIENT_URL}`,
     });
@@ -50,94 +114,6 @@ app.post("/create-checkout-session", async (req, res) => {
     console.error("❌ Stripe error:", error);
     res.status(500).json({ error: "Erreur lors de la création de la session Stripe" });
   }
-});
-
-
-/* -------------------------------------------------------------------------- */
-/*                               BPOST SHIPPING                               */
-/* -------------------------------------------------------------------------- */
-
-// 🔐 Génération checksum BPOST
-
-/**
- * Endpoint pour récupérer uniquement les paramètres obligatoires
- */
-app.post("/bpost/get-shm-params", (req, res) => {
-  const { items, costCenter } = req.body; // costCenter est optionnel
-
-  const orderReference = Date.now(); // ou un ID unique
-
-  // Calcul du poids total en grammes
-  const orderWeight = items.reduce((total, item) => {
-    const itemWeight = item.variant?.poids || 0;
-    return total + itemWeight * item.qty;
-  }, 0);
-
-  // Préparer les paramètres BPOST
-  const params = {
-  accountId: process.env.BPOST_ACCOUNT_ID,
-  action: "START",
-  customerCountry: req.body.country || "BE", // ⚡ valeur envoyée par le front
-  orderReference,
-  orderWeight,
-};
-
-
-  // Optionnel : costCenter
-  if (costCenter) {
-    params.costCenter = costCenter;
-  }
-
-  // 🔑 Calcul checksum en incluant les champs optionnels
-  function generateBpostChecksum(params, passphrase) {
-    const fieldsToInclude = {
-      accountId: params.accountId,
-      action: params.action,
-      customerCountry: params.customerCountry,
-      orderReference: params.orderReference,
-    };
-
-    // Ajouter les champs optionnels s'ils existent
-    if (params.costCenter) fieldsToInclude.costCenter = params.costCenter;
-    if (params.orderWeight) fieldsToInclude.orderWeight = params.orderWeight;
-    if (params.deliveryMethodsOverrides) fieldsToInclude.deliveryMethodsOverrides = params.deliveryMethodsOverrides;
-    if (params.extraSecure) fieldsToInclude.extraSecure = params.extraSecure;
-
-    // Tri alphabétique + concaténation + passphrase
-    const concatenated = Object.keys(fieldsToInclude)
-      .sort()
-      .map(k => `${k}=${fieldsToInclude[k]}`)
-      .join("&") + `&${passphrase}`;
-
-    console.log("🔑 BPOST checksum string:", concatenated);
-
-    return crypto.createHash("sha256").update(concatenated, "utf8").digest("hex");
-  }
-
-  params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
-
-  console.log("📦 BPOST params ready to send:", JSON.stringify(params, null, 2));
-
-  res.json(params);
-});
-
-
-// ✅ Confirm
-app.post("/bpost/confirm", (req, res) => {
-  console.log("✅ BPOST Confirm received:", req.body);
-  res.redirect(`${process.env.CLIENT_URL}/confirm`);
-});
-
-// ❌ Error
-app.post("/bpost/error", (req, res) => {
-  console.log("❌ BPOST Error received:", req.body);
-  res.redirect(`${process.env.CLIENT_URL}/error`);
-});
-
-// ⚠️ Cancel
-app.post("/bpost/cancel", (req, res) => {
-  console.log("⚠️ BPOST Cancel received:", req.body);
-  res.redirect(`${process.env.CLIENT_URL}`);
 });
 
 /* -------------------------------------------------------------------------- */

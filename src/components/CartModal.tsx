@@ -10,6 +10,7 @@ interface CartModalProps {
 
 export default function CartModal({ items, onClose, onUpdateCart }: CartModalProps) {
   const [user, setUser] = useState<any>(null);
+  const [country, setCountry] = useState<string>("BE"); // BE par défaut
   const [shippingMethod, setShippingMethod] = useState<string | null>(null);
   const [shippingCost, setShippingCost] = useState(0);
 
@@ -38,9 +39,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
     return () => listener.subscription.unsubscribe();
   }, []);
-  const [country, setCountry] = useState<string>("BE"); // BE par défaut
 
-  // 🔹 Sauvegarder le panier dans Supabase
   const saveCart = async (updatedItems: CartItem[]) => {
     if (!user) return;
     await supabase
@@ -67,14 +66,11 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     const updated = items.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i);
     await updateCart(updated);
   };
-
   const decreaseQty = async (id: string) => {
-    const updated = items
-      .map(i => i.id === id ? { ...i, qty: i.qty - 1 } : i)
+    const updated = items.map(i => i.id === id ? { ...i, qty: i.qty - 1 } : i)
       .filter(i => i.qty > 0);
     await updateCart(updated);
   };
-
   const removeItem = async (id: string) => {
     const updated = items.filter(i => i.id !== id);
     await updateCart(updated);
@@ -83,11 +79,13 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
   // 🔹 Checkout Stripe
   const handleCheckout = async () => {
     if (!items.length) return;
+
     const res = await fetch("https://bkdesign.onrender.com/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items, customerEmail: user?.email, shippingCost }),
     });
+
     const data = await res.json();
     if (data.url) window.location.href = data.url;
     else alert("Erreur lors de la création de la session Stripe");
@@ -102,7 +100,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     });
 
     const params = await res.json();
-    console.log("📦 Params reçus du serveur:", params);
 
     const popup = window.open("", "BPOST", "width=1024,height=768");
     const form = document.createElement("form");
@@ -123,7 +120,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     document.body.removeChild(form);
 
     setShippingMethod("BPOST");
-    setShippingCost(params.shippingCost || 0);
+    setShippingCost(params.deliveryMethodPriceTotal ? params.deliveryMethodPriceTotal / 100 : 0); 
   };
 
   return (
@@ -147,7 +144,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
                   <li key={item.id} className="flex flex-col py-2 border-b border-[#2a2b2c]">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">{item.title}</span>
-
                       <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700">✕</button>
                     </div>
                     {item.variant?.taille && <span>Taille : {item.variant.taille}</span>}
@@ -173,19 +169,21 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
                 );
               })}
             </ul>
+
+            {/* Sélecteur de pays */}
             <div className="mb-4">
               <span className="text-white mr-2">Choisir le pays :</span>
               {["BE", "FR", "LU", "NL"].map((c) => (
                 <button
                   key={c}
                   onClick={() => setCountry(c)}
-                  className={`px-2 py-1 m-1 rounded ${country === c ? "bg-[#ffc272] text-black" : "bg-[#2a2b2c] text-white"
-                    }`}
+                  className={`px-2 py-1 m-1 rounded ${country === c ? "bg-[#ffc272] text-black" : "bg-[#2a2b2c] text-white"}`}
                 >
                   {c}
                 </button>
               ))}
             </div>
+
             <div className="mt-4">
               <button
                 onClick={openBpostPopup}
