@@ -26,7 +26,6 @@ app.post("/create-checkout-session", async (req, res) => {
       const promo = Number(item.variant?.promotion || 0);
       // 💰 Calcul prix après réduction
       const discountedPrice = price - (price * promo) / 100;
-      alert("Promo", promo, price, item.price, discountedPrice);
 
       return {
         price_data: {
