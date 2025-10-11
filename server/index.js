@@ -14,7 +14,6 @@ app.use(express.json());
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2022-11-15",
 });
-
 /* -------------------------------------------------------------------------- */
 /*                               STRIPE CHECKOUT                              */
 /* -------------------------------------------------------------------------- */
@@ -22,14 +21,23 @@ app.post("/create-checkout-session", async (req, res) => {
   try {
     const { items } = req.body;
 
-    const line_items = items.map((item) => ({
-      price_data: {
-        currency: "eur",
-        product_data: { name: item.title },
-        unit_amount: item.price * 100, // montant en centimes
-      },
-      quantity: item.qty,
-    }));
+    const line_items = items.map((item) => {
+      const price = Number(item.price);
+      const promo = Number(item.variant?.promotion || 0);
+      // 💰 Calcul prix après réduction
+      const discountedPrice = price - (price * promo) / 100;
+      alert("Promo", promo, price, item.price, discountedPrice);
+
+      return {
+        price_data: {
+          currency: "eur",
+          product_data: { name: item.title },
+          unit_amount: Math.round(discountedPrice * 100), // centimes
+        },
+        quantity: item.qty,
+      };
+    });
+
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -42,7 +50,7 @@ app.post("/create-checkout-session", async (req, res) => {
     res.json({ url: session.url });
   } catch (error) {
     console.error("❌ Stripe error:", error);
-    res.status(500).json({ error: "Erreur lors de la création de la session Stripe" });
+    res.status(500).json({ error: "Erreur lors de la création de la session Stripe, Vérifiez que le contenu du paiement est bien supérieur à 1 euros" });
   }
 });
 
