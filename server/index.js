@@ -8,7 +8,6 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // ✅ important pour POST form urlencoded
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
@@ -69,39 +68,19 @@ app.post("/bpost/get-shm-params", (req, res) => {
 });
 
 // ✅ Confirmation BPOST (appelé par BPOST)
-app.all("/bpost/confirm", (req, res) => {
-  // BPOST peut envoyer en GET ou POST
-  const { orderReference, deliveryMethodPriceTotal } = {
-    ...req.query,
-    ...req.body,
-  };
+app.post("/bpost/confirm", (req, res) => {
+  const { orderReference, deliveryMethodPriceTotal } = req.body;
 
-  console.log("📦 BPOST Confirm reçu :", req.query, req.body);
+  console.log("📦 BPOST CONFIRM reçu :", req.body);
 
-  if (!orderReference || !deliveryMethodPriceTotal) {
-    console.error("❌ Paramètres manquants dans la confirmation BPOST");
-    return res.status(400).send("Paramètres manquants");
-  }
-
-  // ✅ Stocker les frais en euros
+  // ⚡ Stocker les frais reçus
   orders[orderReference] = {
-    shippingCost: Number(deliveryMethodPriceTotal) / 100,
+    shippingCost: deliveryMethodPriceTotal / 100,
   };
 
-  // ✅ Retourner une simple page pour la popup
-  res.send(`
-    <html>
-      <head><title>Livraison confirmée</title></head>
-      <body style="font-family: sans-serif; text-align:center; padding-top: 40px;">
-        <h2>✅ Livraison BPOST confirmée</h2>
-        <p>Vous pouvez maintenant fermer cette fenêtre et procéder au paiement.</p>
-        <script>
-          window.close();
-        </script>
-      </body>
-    </html>
-  `);
+  res.send("OK");
 });
+
 // ✅ Endpoint pour récupérer les frais stockés depuis le front
 app.get("/bpost/get-shipping", (req, res) => {
   const { orderReference } = req.query;
