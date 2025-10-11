@@ -54,9 +54,7 @@ app.post("/bpost/get-shm-params", (req, res) => {
     customerCountry: "BE",
     orderReference,
     orderWeight: totalWeightGrams.toString(), // poids en grammes
-    customerFirstName: customer.firstName,
-    customerLastName: customer.lastName,
-    customerEmail: customer.email,
+
     extra: JSON.stringify({
       basketTotal,       // Total panier en centimes
       tempId: orderReference,
