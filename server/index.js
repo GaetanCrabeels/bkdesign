@@ -194,7 +194,6 @@ app.post("/create-checkout-session", async (req, res) => {
 /*                               STRIPE WEBHOOK                               */
 /* -------------------------------------------------------------------------- */
 
-import bodyParser from "body-parser";
 
 app.post(
   "/stripe/webhook",
