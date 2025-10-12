@@ -119,9 +119,12 @@ app.get("/bpost/get-shipping", (req, res) => {
 /* -------------------------------------------------------------------------- */
 /*                               STRIPE CHECKOUT                              */
 /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                               STRIPE CHECKOUT                              */
+/* -------------------------------------------------------------------------- */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items, customerEmail, shippingCost } = req.body;
+    const { items, customerEmail, shippingCost, orderReference } = req.body; // ✅ on récupère la référence ici
 
     const line_items = items.map((item) => {
       const promo = item.variant?.promotion || 0;
@@ -129,17 +132,18 @@ app.post("/create-checkout-session", async (req, res) => {
       return {
         price_data: {
           currency: "eur",
-          product_data: { name: item.title },
+          product_data: { 
+            name: item.title,
+            metadata: {
+              reference: orderReference || "" // facultatif mais utile pour suivre les produits
+            }
+          },
           unit_amount: Math.round(priceWithPromo * 100),
-          metadata: {
-          product_reference: orderReference // 🆕 référence produit ici
-        }
         },
         quantity: item.qty,
       };
     });
 
-    // Ajouter les frais de livraison
     if (shippingCost > 0) {
       line_items.push({
         price_data: {
@@ -156,6 +160,10 @@ app.post("/create-checkout-session", async (req, res) => {
       line_items,
       mode: "payment",
       customer_email: customerEmail,
+      client_reference_id: String(orderReference), // ✅ référence visible dans le Dashboard Stripe
+      metadata: {
+        bpost_order_reference: String(orderReference) // ✅ accessible via Webhooks et Dashboard
+      },
       success_url: `${process.env.CLIENT_URL}/confirm`,
       cancel_url: `${process.env.CLIENT_URL}/error`,
     });
