@@ -53,13 +53,13 @@ app.post("/bpost/get-shm-params", (req, res) => {
   }, 0);
 
   const params = {
-  accountId: String(process.env.BPOST_ACCOUNT_ID),
-  action: "START",
-  customerCountry: String(country || "BE"),
-  orderReference: String(orderReference),
-  orderWeight: String(orderWeight),
-  extra : String(orderReference)
-};
+    accountId: String(process.env.BPOST_ACCOUNT_ID),
+    action: "START",
+    customerCountry: String(country || "BE"),
+    orderReference: String(orderReference),
+    orderWeight: String(orderWeight),
+    extra: String(orderReference)
+  };
 
 
   params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
@@ -119,9 +119,7 @@ app.get("/bpost/get-shipping", (req, res) => {
 /* -------------------------------------------------------------------------- */
 /*                               STRIPE CHECKOUT                              */
 /* -------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------- */
-/*                               STRIPE CHECKOUT                              */
-/* -------------------------------------------------------------------------- */
+
 app.post("/create-checkout-session", async (req, res) => {
   try {
     const { items, customerEmail, shippingCost, orderReference } = req.body; // ✅ on récupère la référence ici
@@ -132,7 +130,7 @@ app.post("/create-checkout-session", async (req, res) => {
       return {
         price_data: {
           currency: "eur",
-          product_data: { 
+          product_data: {
             name: item.title,
             metadata: {
               reference: orderReference || "" // facultatif mais utile pour suivre les produits
@@ -156,19 +154,30 @@ app.post("/create-checkout-session", async (req, res) => {
     }
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"], 
+      payment_method_types: ["card"],
       line_items,
       mode: "payment",
       customer_email: customerEmail,
-      client_reference_id: String(orderReference), // ✅ référence visible dans le Dashboard Stripe
+      client_reference_id: String(orderReference),
       metadata: {
-        bpost_order_reference: String(orderReference) // ✅ accessible via Webhooks et Dashboard
+        bpost_order_reference: String(orderReference),
       },
       success_url: `${process.env.CLIENT_URL}/confirm`,
       cancel_url: `${process.env.CLIENT_URL}/error`,
     });
 
+    // 🪄 Important : Copier la référence sur le PaymentIntent
+    if (session.payment_intent) {
+      await stripe.paymentIntents.update(session.payment_intent, {
+        metadata: {
+          bpost_order_reference: String(orderReference),
+        },
+        description: `Commande #${orderReference}`, // 👈 visible directement dans le Dashboard Paiements
+      });
+    }
+
     res.json({ url: session.url });
+
   } catch (error) {
     console.error("❌ Stripe error:", error);
     res.status(500).json({ error: "Erreur lors de la création de la session Stripe" });
