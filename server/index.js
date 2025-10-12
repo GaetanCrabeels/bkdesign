@@ -3,17 +3,33 @@ import Stripe from "stripe";
 import crypto from "crypto";
 import cors from "cors";
 import dotenv from "dotenv";
+import bodyParser from "body-parser";
+import { createClient } from "@supabase/supabase-js";
+
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // ✅ important pour POST form urlencoded
+
+// ⚠️ On ne met pas express.json() ici globalement pour ne pas casser la vérification Stripe
+app.use((req, res, next) => {
+  if (req.originalUrl === "/stripe/webhook") {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
+app.use(express.urlencoded({ extended: true }));
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
 
-// ⚡ Stockage temporaire en mémoire pour les frais BPOST
-// (en prod : stocker ça dans Redis ou une DB)
+// 🔐 Connexion à Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+
+// ⚡ Stockage temporaire en mémoire pour les frais BPOST et les items
 const orders = {};
 
 /* -------------------------------------------------------------------------- */
@@ -58,21 +74,19 @@ app.post("/bpost/get-shm-params", (req, res) => {
     customerCountry: String(country || "BE"),
     orderReference: String(orderReference),
     orderWeight: String(orderWeight),
-    extra: String(orderReference)
+    extra: String(orderReference),
   };
-
 
   params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
 
-  // ⚠️ Préparer un slot dans notre mémoire pour récupérer les frais plus tard
-  orders[orderReference] = { shippingCost: null };
+  // ⚠️ Préparer un slot dans notre mémoire pour récupérer les frais et items plus tard
+  orders[orderReference] = { shippingCost: null, items };
 
   res.json(params);
 });
 
 // ✅ Confirmation BPOST (appelé par BPOST)
 app.all("/bpost/confirm", (req, res) => {
-  // BPOST peut envoyer en GET ou POST
   const { orderReference, deliveryMethodPriceTotal } = {
     ...req.query,
     ...req.body,
@@ -86,11 +100,9 @@ app.all("/bpost/confirm", (req, res) => {
   }
 
   // ✅ Stocker les frais en euros
-  orders[orderReference] = {
-    shippingCost: Number(deliveryMethodPriceTotal) / 100,
-  };
+  if (!orders[orderReference]) orders[orderReference] = {};
+  orders[orderReference].shippingCost = Number(deliveryMethodPriceTotal) / 100;
 
-  // ✅ Retourner une simple page pour la popup
   res.send(`
     <html>
       <head><title>Livraison confirmée</title></head>
@@ -104,6 +116,7 @@ app.all("/bpost/confirm", (req, res) => {
     </html>
   `);
 });
+
 // ✅ Endpoint pour récupérer les frais stockés depuis le front
 app.get("/bpost/get-shipping", (req, res) => {
   const { orderReference } = req.query;
@@ -150,6 +163,9 @@ app.post("/create-checkout-session", async (req, res) => {
       });
     }
 
+    // 🪄 Stocker les items en mémoire pour décrémenter plus tard
+    orders[orderReference] = { ...orders[orderReference], items };
+
     // 🪄 Création de la session Stripe avec la même référence
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -167,7 +183,6 @@ app.post("/create-checkout-session", async (req, res) => {
       },
     });
 
-
     res.json({ url: session.url });
   } catch (error) {
     console.error("❌ Stripe error:", error);
@@ -175,6 +190,64 @@ app.post("/create-checkout-session", async (req, res) => {
   }
 });
 
+/* -------------------------------------------------------------------------- */
+/*                               STRIPE WEBHOOK                               */
+/* -------------------------------------------------------------------------- */
+
+app.post(
+  "/stripe/webhook",
+  bodyParser.raw({ type: "application/json" }),
+  async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("❌ Signature Stripe invalide :", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const orderReference = session.client_reference_id;
+
+      console.log("✅ Paiement confirmé pour la commande :", orderReference);
+
+      const order = orders[orderReference];
+
+      if (order && order.items) {
+        for (const item of order.items) {
+          const variantId = item.variant?.id;
+          const qty = item.qty;
+
+          if (variantId && qty) {
+            const { error } = await supabase
+              .from("product_variants")
+              .update({
+                quantity: supabase.sql`GREATEST(quantity - ${qty}, 0)`,
+              })
+              .eq("id", variantId);
+
+            if (error) {
+              console.error(`❌ Erreur MAJ stock pour ${item.title}`, error);
+            } else {
+              console.log(`📉 Stock mis à jour pour ${item.title} (-${qty})`);
+            }
+          }
+        }
+      } else {
+        console.warn(`⚠️ Aucun item trouvé pour la commande ${orderReference}`);
+      }
+    }
+
+    res.json({ received: true });
+  }
+);
 
 /* -------------------------------------------------------------------------- */
 /*                              LANCEMENT SERVER                              */
