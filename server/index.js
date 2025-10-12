@@ -58,6 +58,7 @@ app.post("/bpost/get-shm-params", (req, res) => {
   customerCountry: String(country || "BE"),
   orderReference: String(orderReference),
   orderWeight: String(orderWeight),
+  extra : String(orderReference)
 };
 
 
@@ -130,6 +131,9 @@ app.post("/create-checkout-session", async (req, res) => {
           currency: "eur",
           product_data: { name: item.title },
           unit_amount: Math.round(priceWithPromo * 100),
+          metadata: {
+          product_reference: orderReference // 🆕 référence produit ici
+        }
         },
         quantity: item.qty,
       };
@@ -148,7 +152,7 @@ app.post("/create-checkout-session", async (req, res) => {
     }
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      payment_method_types: ["card"], 
       line_items,
       mode: "payment",
       customer_email: customerEmail,
