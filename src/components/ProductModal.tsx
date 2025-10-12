@@ -8,7 +8,6 @@ interface ProductModalProps {
   onAdd: (item: CartItem) => void;
 }
 
-// 🔹 Interface complète de la variante, compatible avec CartItem.variant
 interface ProductVariant {
   id: string;
   produit_id: string;
@@ -45,50 +44,59 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
     promo > 0 ? (product.price * (1 - promo / 100)).toFixed(2) : product.price.toFixed(2);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-[#ecddc9] text-[#111213] rounded-lg shadow-lg p-8 pt-4 z-10 max-w-[90vw]">
+      <div className="relative bg-[#ecddc9] rounded-lg shadow-lg p-6 pt-4 z-10 w-full max-w-md sm:max-w-lg lg:max-w-xl">
+        {/* Bouton fermer */}
         <button
           onClick={onClose}
-          className="absolute top-0 right-1 text-[#000000] hover:text-white text-2xl"
+          className="absolute top-2 right-2 text-[#000000] hover:text-white text-2xl"
           aria-label="Fermer"
         >
           ✕
         </button>
 
-        <div className="flex flex-col md:flex-row gap-6 text-justify items-center">
+        <div className="flex flex-col md:flex-row gap-4 text-justify items-center">
+          {/* Image */}
           <img
             src={product.image_url}
             alt={product.title}
-            width={256}
-            height={256}
             loading="eager"
             decoding="async"
-            className="rounded object-cover w-full md:w-64 h-64"
+            className="rounded object-cover w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64"
           />
 
-          <div className="flex flex-col flex-1">
-            <h2 className="text-2xl sm:text-3xl text-center font-bold">{product.title}</h2>
+          {/* Infos produit */}
+          <div className="flex flex-col flex-1 w-full">
+            <h2
+              className="text-xl sm:text-2xl text-center text-black font-base"
+              style={{ fontFamily: "Barlow" }}
+            >
+              {product.title}
+            </h2>
+
             {product.subcategory && (
-              <p className="text-sm italic mt-3 text-center">
+              <p className="text-sm text-black italic mt-2 text-center">
                 {product.category} &gt; {product.subcategory}
               </p>
             )}
-            <p className="mt-5">{product.description}</p>
+
+            <p className="mt-3 text-sm sm:text-base">{product.description}</p>
 
             {/* Sélecteur de taille */}
             {variants.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 mt-3 justify-center">
                 {variants
-                  .filter(v => v.taille) // ne garde que les variants avec une taille
+                  .filter(v => v.taille)
                   .map(v => (
                     <button
                       key={v.id}
                       onClick={() => setSelectedTaille(v.taille)}
-                      className={`px-2 py-1 text-xs rounded border ${selectedTaille === v.taille
+                      className={`px-2 py-1 text-xs sm:text-sm rounded border ${
+                        selectedTaille === v.taille
                           ? "bg-[#ffc272] text-black border-[#ffc272]"
                           : "bg-transparent text-black border-gray-600 hover:border-[#ffc272]"
-                        }`}
+                      }`}
                     >
                       {v.taille}
                     </button>
@@ -97,21 +105,23 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
             )}
 
             {/* Prix */}
-            <div className="mt-6 mb-2">
+            <div className="mt-4 mb-2 text-center text-lg text-black">
               Prix : <span className="font-bold">{discountedPrice} €</span>
               {promo > 0 && (
-                <span className="line-through text-gray-500 ml-2">{product.price.toFixed(2)} €</span>
+                <span className="line-through text-gray-500 ml-2 text-sm">
+                  {product.price.toFixed(2)} €
+                </span>
               )}
             </div>
 
             {/* Quantité + boutons */}
-            <div className="flex items-center gap-2 justify-between mt-4">
+            <div className="flex justify-center gap-2 mt-4 text-black" >
               <input
                 value={qty}
                 onChange={(e) => setQty(Number(e.target.value))}
                 type="number"
                 min={1}
-                className="w-20 border rounded px-2 py-1"
+                className="w-20 sm:w-10 justify-center border rounded text-center"
               />
               <button
                 onClick={() => {
@@ -126,13 +136,13 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
                   onAdd(cartItem);
                   onClose();
                 }}
-                className="px-4 py-2 bg-[#ca7322] text-white rounded hover:bg-[#ffc272] transition-colors"
+                className="px-4 py-2 bg-[#ca7322] text-white rounded hover:bg-[#ffc272] transition-colors text-sm sm:text-base"
               >
                 Ajouter
               </button>
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-[#ca7322] text-white hover:bg-[#ffc272] transition-colors"
+                className="px-4 py-2 bg-[#ca7322] text-white hover:bg-[#ffc272] rounded transition-colors text-sm sm:text-base"
               >
                 Fermer
               </button>

@@ -194,6 +194,8 @@ app.post("/create-checkout-session", async (req, res) => {
 /*                               STRIPE WEBHOOK                               */
 /* -------------------------------------------------------------------------- */
 
+import bodyParser from "body-parser";
+
 app.post(
   "/stripe/webhook",
   bodyParser.raw({ type: "application/json" }),
@@ -226,15 +228,29 @@ app.post(
           const qty = item.qty;
 
           if (variantId && qty) {
-            const { error } = await supabase
+            // 1️⃣ Récupérer la quantité actuelle
+            const { data: variant, error: fetchError } = await supabase
               .from("product_variants")
-              .update({
-                quantity: supabase.sql`GREATEST(quantity - ${qty}, 0)`,
-              })
+              .select("quantity")
+              .eq("id", variantId)
+              .single();
+
+            if (fetchError || !variant) {
+              console.error(`❌ Impossible de récupérer ${item.title}`, fetchError);
+              continue;
+            }
+
+            // 2️⃣ Calculer la nouvelle quantité
+            const newQty = Math.max(variant.quantity - qty, 0);
+
+            // 3️⃣ Mettre à jour la DB
+            const { error: updateError } = await supabase
+              .from("product_variants")
+              .update({ quantity: newQty })
               .eq("id", variantId);
 
-            if (error) {
-              console.error(`❌ Erreur MAJ stock pour ${item.title}`, error);
+            if (updateError) {
+              console.error(`❌ Erreur MAJ stock pour ${item.title}`, updateError);
             } else {
               console.log(`📉 Stock mis à jour pour ${item.title} (-${qty})`);
             }
@@ -248,6 +264,7 @@ app.post(
     res.json({ received: true });
   }
 );
+
 
 /* -------------------------------------------------------------------------- */
 /*                              LANCEMENT SERVER                              */

@@ -88,7 +88,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
           </div>
 
           <h3
-            className="md:text-2xl font-thin text-center line-clamp-1 mb-1"
+            className="md:text-2xl  font-thin text-center line-clamp-1 mb-1"
             style={{ fontFamily: "Barlow" }}
           >
             {product.title}
