@@ -159,17 +159,14 @@ app.post("/create-checkout-session", async (req, res) => {
       client_reference_id: String(orderReference),
       success_url: `${process.env.CLIENT_URL}/confirm`,
       cancel_url: `${process.env.CLIENT_URL}/error`,
-    });
-
-    // 🪙 Ajouter metadata sur le PaymentIntent pour la traçabilité
-    if (session.payment_intent) {
-      await stripe.paymentIntents.update(session.payment_intent, {
+      payment_intent_data: {
         metadata: {
           bpost_order_reference: String(orderReference),
         },
         description: `Commande #${orderReference}`,
-      });
-    }
+      },
+    });
+
 
     res.json({ url: session.url });
   } catch (error) {
