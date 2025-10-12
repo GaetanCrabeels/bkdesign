@@ -14,6 +14,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
   const [shippingMethod, setShippingMethod] = useState<string | null>(null);
   const [shippingCost, setShippingCost] = useState(0);
   const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
+  const [bpostReference, setBpostReference] = useState<string | null>(null);
 
   useEffect(() => {
     const initUser = async () => {
@@ -79,24 +80,29 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
   // 🔹 Checkout Stripe
   const handleCheckout = async () => {
-    if (!items.length) return;
+  if (!items.length) return;
 
-    const res = await fetch("https://bkdesign.onrender.com/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items, customerEmail: user?.email, shippingCost }),
-    });
+  const res = await fetch("https://bkdesign.onrender.com/create-checkout-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      items,
+      customerEmail: user?.email,
+      shippingCost,
+      orderReference: bpostReference, // 🟡 la même ref que celle de BPOST
+    }),
+  });
 
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else alert("Erreur lors de la création de la session Stripe");
-  };
+  const data = await res.json();
+  if (data.url) window.location.href = data.url;
+  else alert("Erreur lors de la création de la session Stripe");
+};
 
-  // 🔹 BPOST popup + confirmation
+
   // 🔹 BPOST popup + confirmation
   const handleBpost = async () => {
     if (!deliveryConfirmed) {
-      // Ouvrir popup pour choisir la livraison
+      // 📦 1) On lance BPOST et récupère les params
       const res = await fetch("https://bkdesign.onrender.com/bpost/get-shm-params", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,6 +111,10 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
       const params = await res.json();
 
+      // ⚠️ params.orderReference est notre référence unique générée pour BPOST
+      const bpostOrderRef = params.orderReference;
+
+      // 🪟 2) On ouvre la popup
       const popup = window.open("", "BPOST", "width=1024,height=768");
       const form = document.createElement("form");
       form.method = "POST";
@@ -123,11 +133,11 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
       form.submit();
       document.body.removeChild(form);
 
-      // ⚡ Poll toutes les 1.5s jusqu'à réception des frais
+      // ⏳ 3) Poll jusqu’à ce que les frais soient disponibles
       const checkShippingCost = setInterval(async () => {
         try {
           const confirmRes = await fetch(
-            `https://bkdesign.onrender.com/bpost/get-shipping?orderReference=${params.orderReference}`
+            `https://bkdesign.onrender.com/bpost/get-shipping?orderReference=${bpostOrderRef}`
           );
 
           if (confirmRes.ok) {
@@ -135,6 +145,10 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
             setShippingCost(data.shippingCost);
             setShippingMethod("BPOST");
             setDeliveryConfirmed(true);
+
+            // 🆕 ✅ On stocke la référence dans un state pour Stripe
+            setBpostReference(bpostOrderRef);
+
             clearInterval(checkShippingCost);
           }
         } catch (err) {
@@ -142,10 +156,11 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
         }
       }, 1500);
     } else {
-      // La livraison est déjà confirmée → lancer Stripe
+      // 🚀 4) Si la livraison est confirmée, lancer Stripe
       handleCheckout();
     }
   };
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-end z-50">

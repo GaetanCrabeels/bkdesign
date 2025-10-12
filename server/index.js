@@ -122,7 +122,7 @@ app.get("/bpost/get-shipping", (req, res) => {
 
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items, customerEmail, shippingCost, orderReference } = req.body; // ✅ on récupère la référence ici
+    const { items, customerEmail, shippingCost, orderReference } = req.body;
 
     const line_items = items.map((item) => {
       const promo = item.variant?.promotion || 0;
@@ -132,9 +132,6 @@ app.post("/create-checkout-session", async (req, res) => {
           currency: "eur",
           product_data: {
             name: item.title,
-            metadata: {
-              reference: orderReference || "" // facultatif mais utile pour suivre les produits
-            }
           },
           unit_amount: Math.round(priceWithPromo * 100),
         },
@@ -153,36 +150,34 @@ app.post("/create-checkout-session", async (req, res) => {
       });
     }
 
+    // 🪄 Création de la session Stripe avec la même référence
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
       customer_email: customerEmail,
       client_reference_id: String(orderReference),
-      metadata: {
-        bpost_order_reference: String(orderReference),
-      },
       success_url: `${process.env.CLIENT_URL}/confirm`,
       cancel_url: `${process.env.CLIENT_URL}/error`,
     });
 
-    // 🪄 Important : Copier la référence sur le PaymentIntent
+    // 🪙 Ajouter metadata sur le PaymentIntent pour la traçabilité
     if (session.payment_intent) {
       await stripe.paymentIntents.update(session.payment_intent, {
         metadata: {
           bpost_order_reference: String(orderReference),
         },
-        description: `Commande #${orderReference}`, // 👈 visible directement dans le Dashboard Paiements
+        description: `Commande #${orderReference}`,
       });
     }
 
     res.json({ url: session.url });
-
   } catch (error) {
     console.error("❌ Stripe error:", error);
     res.status(500).json({ error: "Erreur lors de la création de la session Stripe" });
   }
 });
+
 
 /* -------------------------------------------------------------------------- */
 /*                              LANCEMENT SERVER                              */
