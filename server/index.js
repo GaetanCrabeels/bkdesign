@@ -5,7 +5,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import { createClient } from "@supabase/supabase-js";
-
+import fetch from "node-fetch"; // npm install node-fetch
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL
 dotenv.config();
 
 const app = express();
@@ -18,7 +19,15 @@ app.use((req, res, next) => {
   } else {
     express.json()(req, res, next);
   }
-});
+});setInterval
+setInterval(async () => {
+  try {
+    const res = await fetch(`${RENDER_URL}/ping`);
+    if (res.ok) console.log("✅ Auto-ping réussi");
+  } catch (err) {
+    console.error("⚠️ Auto-ping erreur:", err.message);
+  }
+}, 1 * 60 * 1000);
 app.use(express.urlencoded({ extended: true }));
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
@@ -127,6 +136,12 @@ app.get("/bpost/get-shipping", (req, res) => {
   }
 
   res.json(order);
+}); 
+/* -------------------------------------------------------------------------- */
+/*                                    Ping                                    */
+/* -------------------------------------------------------------------------- */
+app.get("/ping", (req, res) => {
+  res.json({ status: "alive", timestamp: Date.now() });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -255,7 +270,8 @@ app.post(
             }
           }
         }
-      } else {
+      } 
+      else {
         console.warn(`⚠️ Aucun item trouvé pour la commande ${orderReference}`);
       }
     }
