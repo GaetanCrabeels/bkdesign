@@ -13,7 +13,7 @@ export interface Product {
   // Gestion total_quantity
   total_quantity?: number; // facultatif si variants
   created_at?: string; 
-
+  is_hidden?: boolean;
   // Variantes disponibles
 }
 export interface ProductVariant {

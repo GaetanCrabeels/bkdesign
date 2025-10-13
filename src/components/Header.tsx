@@ -57,33 +57,33 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
   };
 
   // Sign-up handler
-const handleSignUp = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
 
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
 
-  if (error) {
-    alert("Erreur: " + error.message);
-    return;
-  }
+    if (error) {
+      alert("Erreur: " + error.message);
+      return;
+    }
 
-  const identities = data.user?.identities ?? [];
+    const identities = data.user?.identities ?? [];
 
-  // Si identities est vide -> utilisateur existe déjà
-  if (data.user && identities.length === 0) {
-    alert("⚠️ Ce compte existe déjà. Essayez de vous connecter.");
-    return;
-  }
+    // Si identities est vide -> utilisateur existe déjà
+    if (data.user && identities.length === 0) {
+      alert("⚠️ Ce compte existe déjà. Essayez de vous connecter.");
+      return;
+    }
 
-  // Si identities contient un élément -> nouvel utilisateur
-  if (data.user && identities.length > 0) {
-    alert("✅ Compte créé ! Vérifiez vos emails pour confirmer.");
-    setShowSignUp(false);
-    setShowLogin(false);
-  }
-};
+    // Si identities contient un élément -> nouvel utilisateur
+    if (data.user && identities.length > 0) {
+      alert("✅ Compte créé ! Vérifiez vos emails pour confirmer.");
+      setShowSignUp(false);
+      setShowLogin(false);
+    }
+  };
 
 
 
@@ -132,18 +132,19 @@ const handleSignUp = async (e: React.FormEvent) => {
         {/* Panier + Auth */}
         <div className="flex items-end justify-end gap-1 z-[0]">
           {/* Panier */}
+          {/* --- Bouton Panier Flottant --- */}
           <button
             onClick={onOpenCart}
-            className="relative inline-flex items-center justify-center bg-black text-[#ffc272] rounded-full p-2 sm:px-4 sm:py-2 hover:text-white transition-colors shadow-md"
+            className="fixed bottom-5 right-5 lg:bottom-8 lg:right-8 bg-black text-[#ffc272] rounded-full p-3 sm:p-4 hover:text-white transition-colors shadow-lg z-50"
           >
-            <ShoppingCart size={25} className="lg:hidden" />
-            <span className="hidden lg:inline">Panier</span>
+            <ShoppingCart size={28} />
             {cartCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 text-xs rounded-full bg-red-500 text-white flex items-center justify-center">
                 {cartCount}
               </span>
             )}
           </button>
+
 
           {/* Hamburger */}
           <button

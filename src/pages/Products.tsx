@@ -60,15 +60,25 @@ export default function Produits() {
 
   // --- Fetch produits
   useEffect(() => {
-    async function fetchProducts() {
-      setLoading(true);
-      const { data, error } = await supabase.from("products").select("*");
-      if (error) console.error(error);
-      else setProducts(data || []);
-      setLoading(false);
+  async function fetchProducts() {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("is_hidden", false);  // 👈 on ne récupère que les produits visibles
+
+    if (error) {
+      console.error(error);
+    } else {
+      setProducts(data || []);
     }
-    fetchProducts();
-  }, []);
+
+    setLoading(false);
+  }
+
+  fetchProducts();
+}, []);
+
 
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category).filter(Boolean))), [products]);
   const subcategories = useMemo(

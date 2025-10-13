@@ -86,6 +86,24 @@ export function useCart() {
 
   // --- Nombre total d'articles
   const cartCount = cart.reduce((sum, i) => sum + (i.qty ?? 1), 0);
+  // --- Vider complètement le panier
+  const clearCart = async () => {
+    setCart([]);
+    localStorage.removeItem("cart");
 
-  return { cart, cartCount, addToCart, removeFromCart, setItemQty, updateCart, user };
+    if (user) {
+      await supabase.from("profiles").update({ panier: [] }).eq("id", user.id);
+    }
+  };
+
+  return {
+    cart,
+    cartCount,
+    addToCart,
+    removeFromCart,
+    setItemQty,
+    updateCart,
+    clearCart,  // 👈 nouvelle méthode
+    user
+  };
 }

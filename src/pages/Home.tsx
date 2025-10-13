@@ -21,21 +21,25 @@ export default function Home() {
 
   // 🔹 Fetch produits
   useEffect(() => {
-    let mounted = true;
-    const fetchProducts = async () => {
+    async function fetchProducts() {
       setLoading(true);
-      try {
-        const { data, error } = await supabase.from("products").select("*");
-        if (mounted) setProducts(error ? [] : data || []);
-      } catch {
-        if (mounted) setProducts([]);
-      } finally {
-        if (mounted) setLoading(false);
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_hidden", false);  // 👈 on ne récupère que les produits visibles
+
+      if (error) {
+        console.error(error);
+      } else {
+        setProducts(data || []);
       }
-    };
+
+      setLoading(false);
+    }
+
     fetchProducts();
-    return () => { mounted = false; };
   }, []);
+
 
   // 🔹 Filtrage
   const filtered = useMemo(() => {

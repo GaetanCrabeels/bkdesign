@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Product } from "../types/product";
+import { Eye, EyeOff } from "lucide-react";
 
 interface AdminProductFormProps {
   userRole: string;
@@ -50,7 +51,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
     setLoading(true);
     const { data: productsData } = await supabase
       .from("products")
-      .select("*")
+      .select("*, is_hidden")   // 👈 important ici
       .order("created_at", { ascending: false });
 
     if (!productsData) return setLoading(false);
@@ -80,6 +81,23 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
       else newVariants[index][field] = Number(value);
       return newVariants;
     });
+  };
+  const toggleHidden = async (id: string, newValue: boolean) => {
+    const { error } = await supabase
+      .from("products")
+      .update({ is_hidden: newValue })
+      .eq("id", id);
+
+    if (error) {
+      console.error(error);
+      alert("Erreur lors de la mise à jour de la visibilité.");
+      return;
+    }
+
+    // 🔁 Mettre à jour localement sans refetch complet
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, is_hidden: newValue } : p))
+    );
   };
 
   const addVariant = () =>
@@ -212,8 +230,9 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
             <textarea placeholder="Description" value={formData.desc} onChange={e => handleChange("desc", e.target.value)} className="w-full p-1 rounded bg-[#2a2b2c] text-[#ffc272]" />
 
             <div className="flex items-center gap-3">
-              <input type="file" ref={fileInputRef} onChange={e => handleChange("imageFile", e.target.files?.[0] || null)} className="text-xs sm:text-lg pt-3 rounded bg-[#2a2b2c] text-[#ffc272]" />
-              {editingProduct?.image_url && <img src={editingProduct.image_url} alt="preview" className="mt-4 w-24 h-24 rounded" />}
+              {editingProduct?.image_url && <img src={editingProduct.image_url} alt="preview" className="mt-4 w-auto h-24 rounded" />}
+
+              <input type="file" ref={fileInputRef} onChange={e => handleChange("imageFile", e.target.files?.[0] || null)} className=" rounded bg-[#2a2b2c] text-[#ffc272]" />
             </div>
 
             <div className="bg-[#2a2b2c] p-2 rounded mt-2">
@@ -221,23 +240,44 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
               {variants.map((v, i) => (
                 <div key={i} className="flex gap-1 mb-1 flex-wrap items-center">
                   <input placeholder="Taille" value={v.taille} onChange={e => handleVariantChange(i, "taille", e.target.value)} className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]" />
-                  <input placeholder="Poids(gramme)" type="number" value={v.poids === 0 ? "" : v.poids} onChange={e => handleVariantChange(i, "poids", e.target.value)} className="p-1 rounded w-auto bg-[#1b1c1d] text-[#ffc272]" />
+                  <input placeholder="Poids(gramme)" type="number" value={v.poids === 0 ? "" : v.poids} onChange={e => handleVariantChange(i, "poids", e.target.value)} className="p-1 rounded w-32 bg-[#1b1c1d] text-[#ffc272]" />
                   <input placeholder="Promo %" type="number" value={v.promotion === 0 ? "" : v.promotion} onChange={e => handleVariantChange(i, "promotion", e.target.value)} className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]" />
-                  <input placeholder="Qté" type="number" value={v.quantity === 0 ? "" : v.quantity} onChange={e => handleVariantChange(i, "quantity", e.target.value)} className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]" />
                   <button type="button" onClick={() => removeVariant(i)} className="bg-red-600 px-2 rounded text-white">🗑</button>
                 </div>
               ))}
 
               <button type="button" onClick={addVariant} className="bg-[#ffc272] text-[#111213] px-2 py-1 rounded mt-1 hover:bg-[#d9a556]">Ajouter variante</button>
             </div>
+            <div>
+              <button
+                type="submit"
+                className="bg-[#ffc272] text-[#111213] px-3 py-1 rounded mt-6 hover:bg-[#d9a556]"
+              >
+                {editingProduct ? "Modifier le produit" : "Ajouter le produit"}
+              </button>
 
-            <button type="submit" className="bg-[#ffc272] text-[#111213] px-3 py-1 rounded mt-2 hover:bg-[#d9a556]">
-              {editingProduct ? "Modifier le produit" : "Ajouter le produit"}
-            </button>
+
+
+              {/* 🆕 Bouton Annuler quand on est en mode édition */}
+              {editingProduct && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProduct(null);
+                    setFormData({ title: "", desc: "", cat: "", sub: "", price: "", imageFile: null });
+                    setVariants([{ taille: "", poids: 0, promotion: 0, quantity: 0 }]);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                  className="bg-[#ffc272] text-[#111213] px-3 py-1 rounded mt-6 ml-2 hover:bg-red-500"
+                >
+                  Annuler la modification
+                </button>
+              )}
+            </div>
           </form>
 
           {/* === SÉPARATION VISUELLE ET LISTE PRODUITS === */}
-          <hr className="my-6 h-2 rounded bg-[#ffc272] border-0" />
+          <hr className="my-20  mb10 h-1 rounded bg-[#ffffff] " />
           <h1 className="font-bold text-4xl text-[#ffc272] mb-2" style={{ fontFamily: "Barlow" }}>
             Liste des produits
           </h1>
@@ -287,6 +327,23 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                                 <div key={p.id} className="relative bg-[#2a2b2c] p-3 rounded-xl w-full shadow mb-2 flex gap-3">
                                   <div className="absolute top-2 right-2 flex gap-2">
                                     <button onClick={() => handleEdit(p)} className="bg-blue-600 px-2 py-0.5 rounded hover:bg-blue-500 text-white text-sm" title="Modifier">✎</button>
+                                    <button
+                                      onClick={() => toggleHidden(p.id, !p.is_hidden)}
+                                      className={`flex items-center gap-2  bg-gray-800 text-[#ffc272] rounded hover:bg-gray-700 transition px-2 py-0.5  text-sm ${p.is_hidden ? "bg-green-600 hover:bg-green-500" : "bg-gray-600 hover:bg-gray-500"
+                                        }`}
+                                    >
+                                      {p.is_hidden ? (
+                                        <>
+                                          <Eye className="w-5 h-5" />
+                                          <span>Afficher</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <EyeOff className="w-5 h-5" />
+                                          <span>Cacher</span>
+                                        </>
+                                      )}
+                                    </button>
                                     <button onClick={() => handleDelete(p.id)} className="bg-red-600 px-2 py-0.5 rounded hover:bg-red-500 text-white text-sm" title="Supprimer">🗑</button>
                                   </div>
 
@@ -306,7 +363,6 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                                             <div key={index} className="bg-[#1b1c1d] rounded px-2 py-1 flex flex-wrap gap-3">
                                               <span><strong>Taille :</strong> {v.taille || "-"}</span>
                                               <span><strong>Poids :</strong> {v.poids} kg</span>
-                                              <span><strong>Qté :</strong> {v.quantity}</span>
                                               <span><strong>Promo :</strong> {v.promotion}%</span>
                                               <span><strong>Prix final :</strong> €{finalPrice}</span>
                                             </div>
