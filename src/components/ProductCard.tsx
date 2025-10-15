@@ -69,18 +69,18 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
       )}
 
       <div
-        className="p-4 bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition cursor-pointer flex flex-col min-h-96"
+        className="p-4 bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition cursor-pointer flex flex-col sm:h-auto lg:min-h-96"
         onClick={onOpen}
       >
-        <div className="flex-1 flex flex-col">
-          <div className="w-full h-36 sm:h-40 md:h-44 lg:h-48 flex  border-gray-600 rounded-md mb-4">
+        <div className="flex-1 flex flex-col h-auto">
+          <div className="w-full sm:h-40 md:h-44 lg:h-48 flex justify-center items-center border-gray-600 rounded-md mb-4 overflow-hidden">
             {product.image_url ? (
               <img
                 src={product.image_url}
                 alt={product.title}
                 loading="lazy"
                 decoding="async"
-                className="object-cover rounded-md h-full lg:w-56 w-fit"
+                className="object-contain w-full h-full rounded-md"
               />
             ) : (
               <span className="text-gray-400 text-sm">Pas d'image</span>
@@ -88,11 +88,12 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
           </div>
 
           <h3
-            className="md:text-2xl  font-thin text-center line-clamp-1 mb-1"
+            className="text-xs sm:text-base md:text-lg lg:text-2xl font-extralight text-center line-clamp-1 mb-1"
             style={{ fontFamily: "Barlow" }}
           >
             {product.title}
           </h3>
+
 
           {taillesDisponibles.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
@@ -103,11 +104,10 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
                     e.stopPropagation();
                     setSelectedTaille(taille);
                   }}
-                  className={`px-2 py-1 text-xs rounded border ${
-                    selectedTaille === taille
-                      ? "bg-[#ffc272] text-black border-[#ffc272]"
-                      : "bg-transparent text-white border-gray-600 hover:border-[#ffc272]"
-                  }`}
+                  className={`px-2 py-1 text-xs rounded border ${selectedTaille === taille
+                    ? "bg-[#ffc272] text-black border-[#ffc272]"
+                    : "bg-transparent text-white border-gray-600 hover:border-[#ffc272]"
+                    }`}
                 >
                   {taille}
                 </button>
@@ -133,7 +133,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
               e.stopPropagation();
               handleAdd();
             }}
-            className="mt-auto px-3 py-1.5 sm:px-0 sm:py-2 bg-[#ffc272] text-[#111213] text-sm sm:text-small rounded hover:bg-[#e6aa50] transition-colors"
+            className="mt-auto px-3 py-1.5 sm:px-0 sm:py-2 bg-[#ffc272] text-[#111213] text-sm lg:text-sm rounded hover:bg-[#e6aa50] transition-colors"
           >
             Ajouter au panier
           </button>

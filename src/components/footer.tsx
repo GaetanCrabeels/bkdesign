@@ -12,7 +12,7 @@ export function Footer() {
             <a href="tel:+32476049257" aria-label="Téléphone" className="hover:text-white transition">
               <FaPhone />
             </a>
-            <a href="mailto:info@bkdesign.be" aria-label="Envoyer un email" className="hover:text-white transition">
+            <a href="mailto:bkdesignn@hotmail.com" aria-label="Envoyer un email" className="hover:text-white transition">
               <FaEnvelope />
             </a>
             <a

@@ -31,6 +31,11 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
         if (data?.panier) onUpdateCart(data.panier);
       }
     };
+    useEffect(() => {
+      if (total >= 75) {
+        setShippingCost(0);
+      }
+    }, [total]);
 
     initUser();
 
@@ -80,23 +85,23 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
   // 🔹 Checkout Stripe
   const handleCheckout = async () => {
-  if (!items.length) return;
+    if (!items.length) return;
 
-  const res = await fetch("https://bkdesign.onrender.com/create-checkout-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      items,
-      customerEmail: user?.email,
-      shippingCost,
-      orderReference: bpostReference, // 🟡 la même ref que celle de BPOST
-    }),
-  });
+    const res = await fetch("https://bkdesign.onrender.com/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items,
+        customerEmail: user?.email,
+        shippingCost,
+        orderReference: bpostReference, // 🟡 la même ref que celle de BPOST
+      }),
+    });
 
-  const data = await res.json();
-  if (data.url) window.location.href = data.url;
-  else alert("Erreur lors de la création de la session Stripe");
-};
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+    else alert("Erreur lors de la création de la session Stripe");
+  };
 
 
   // 🔹 BPOST popup + confirmation
@@ -142,11 +147,10 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
 
           if (confirmRes.ok) {
             const data = await confirmRes.json();
-            setShippingCost(data.shippingCost);
+            const cost = total >= 75 ? 0 : data.shippingCost;
+            setShippingCost(cost);
             setShippingMethod("BPOST");
             setDeliveryConfirmed(true);
-
-            // 🆕 ✅ On stocke la référence dans un state pour Stripe
             setBpostReference(bpostOrderRef);
 
             clearInterval(checkShippingCost);
