@@ -351,7 +351,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                                             return (
                                               <div key={index} className="bg-[#1b1c1d] rounded px-2 py-1 flex flex-wrap gap-3">
                                                 <span><strong>Taille :</strong> {v.taille || "-"}</span>
-                                                <span><strong>Poids :</strong> {v.poids} kg</span>
+                                                <span><strong>Poids :</strong> {v.poids} g</span>
                                                 <span><strong>Promo :</strong> {v.promotion}%</span>
                                                 <span><strong>Prix final :</strong> €{finalPrice}</span>
                                               </div>

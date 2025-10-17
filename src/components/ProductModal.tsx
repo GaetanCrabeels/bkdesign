@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Product, CartItem } from "../types/product";
 import { supabase } from "../lib/supabaseClient";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface ProductModalProps {
   product: Product;
   onClose: () => void;
   onAdd: (item: CartItem) => void;
+  isProductPage?: boolean;
 }
 
 interface ProductVariant {
@@ -18,10 +20,12 @@ interface ProductVariant {
   created_at?: string;
 }
 
-export default function ProductModal({ product, onClose, onAdd }: ProductModalProps) {
+export default function ProductModal({ product, onClose, onAdd, isProductPage }: ProductModalProps) {
   const [qty, setQty] = useState(1);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedTaille, setSelectedTaille] = useState<string>("");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     async function fetchVariants() {
@@ -43,13 +47,24 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
   const discountedPrice =
     promo > 0 ? (product.price * (1 - promo / 100)).toFixed(2) : product.price.toFixed(2);
 
+  
+  const handleClose = () => {
+  if (location.state?.background) {
+    navigate(-1); // revenir à la page précédente si modal depuis liste
+  } else {
+    navigate(`/produits?category=${encodeURIComponent(product.category)}`); // redirige si page directe
+  }
+};
+
+
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative bg-[#ecddc9] rounded-lg shadow-lg p-6 pt-4 z-10 w-full max-w-md sm:max-w-lg lg:max-w-xl">
         {/* Bouton fermer */}
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-2 right-2 text-[#000000] hover:text-white text-2xl"
           aria-label="Fermer"
         >
@@ -92,11 +107,10 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
                     <button
                       key={v.id}
                       onClick={() => setSelectedTaille(v.taille)}
-                      className={`px-2 py-1 text-xs sm:text-sm rounded border ${
-                        selectedTaille === v.taille
+                      className={`px-2 py-1 text-xs sm:text-sm rounded border ${selectedTaille === v.taille
                           ? "bg-[#ffc272] text-black border-[#ffc272]"
                           : "bg-transparent text-black border-gray-600 hover:border-[#ffc272]"
-                      }`}
+                        }`}
                     >
                       {v.taille}
                     </button>
@@ -115,7 +129,7 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
             </div>
 
             {/* Quantité + boutons */}
-            <div className="flex justify-center gap-2 mt-4 text-black" >
+            <div className="flex justify-center gap-2 mt-4 text-black">
               <input
                 value={qty}
                 onChange={(e) => setQty(Number(e.target.value))}
@@ -134,14 +148,14 @@ export default function ProductModal({ product, onClose, onAdd }: ProductModalPr
                     variant: selectedVariant,
                   };
                   onAdd(cartItem);
-                  onClose();
+                  handleClose();
                 }}
                 className="px-4 py-2 bg-[#ca7322] text-white rounded hover:bg-[#ffc272] transition-colors text-sm sm:text-base"
               >
                 Ajouter
               </button>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-4 py-2 bg-[#ca7322] text-white hover:bg-[#ffc272] rounded transition-colors text-sm sm:text-base"
               >
                 Fermer

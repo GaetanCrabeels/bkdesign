@@ -5,6 +5,7 @@ import { AutoCarousel } from "../components/Carousel";
 import { Footer } from "../components/Footer";
 import { useCart } from "../components/useCart";
 import { supabase } from "../lib/supabaseClient";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const ProductModal = lazy(() => import("../components/ProductModal"));
 const CartModal = lazy(() => import("../components/CartModal"));
@@ -18,6 +19,8 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
 
   const { cart, addToCart, updateCart } = useCart();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // 🔹 Fetch produits
   useEffect(() => {
@@ -26,31 +29,37 @@ export default function Home() {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("is_hidden", false);  // 👈 on ne récupère que les produits visibles
+        .eq("is_hidden", false);
 
-      if (error) {
-        console.error(error);
-      } else {
-        setProducts(data || []);
-      }
+      if (!error) setProducts(data || []);
+      else console.error(error);
 
       setLoading(false);
     }
-
     fetchProducts();
   }, []);
-
 
   // 🔹 Filtrage
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return products;
     return products.filter(
-      p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
+      p =>
+        p.title.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q)
     );
   }, [query, products]);
 
   const categories = Array.from(new Set(filtered.map(p => p.category))).sort();
+
+  // 🔹 Modal via URL directe
+  useEffect(() => {
+    const match = location.pathname.match(/\/e-shop\/produit\/(.+)/);
+    if (match && products.length) {
+      const prod = products.find(p => p.id === match[1]);
+      if (prod) setSelectedProduct(prod);
+    }
+  }, [location.pathname, products]);
 
   return (
     <div className="min-h-screen bg-[#111213] text-[#ffc272]">
@@ -62,32 +71,13 @@ export default function Home() {
         categories={categories}
       />
 
-      <div className="max-w-7xl mx-auto border-x-2 border-[#2a2b2c] ">
+      <div className="max-w-7xl mx-auto border-x-2 border-[#2a2b2c]">
         <section className="w-full flex flex-col items-center text-center py-10 sm:py-12">
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-[#ffc272] drop-shadow-lg mb-6 sm:mb-8">
             Bienvenue dans notre e-Shop
           </h1>
-
-          <p className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#ffc272] mb-6">
-            CONCEPT STORE DÉCO, MODE & ÉNERGIE
-          </p>
-
-          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-justify">
+          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
             Découvrez un univers unique où se rencontrent :
-          </p>
-
-          <ul className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-left list-disc list-inside space-y-2">
-            <li>Décoration intérieure : cadres, vases, fleurs artificielles, objets design...</li>
-            <li>Pierres naturelles & bijoux énergétiques : minéraux, bijoux, encens, spiritualité...</li>
-            <li>Mode chic : vestes en fausse fourrure & accessoires tendance.</li>
-          </ul>
-
-          <p className="max-w-4xl text-base sm:text- md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
-            Un lieu moderne, inspirant et raffiné pour sublimer votre intérieur, votre style et votre énergie.
-          </p>
-
-          <p className="max-w-4xl sm:text-lg leading-relaxed text-[#d6b98d] mb-6 mx-4 text-center font-semibold">
-            MONS - RUE DES FRIPIERS 22B
           </p>
 
           <div className="w-full max-w-5xl min-h-5 overflow-hidden rounded-xl mb-0">
@@ -107,7 +97,7 @@ export default function Home() {
                 <Suspense fallback={<div className="h-64 bg-[#1b1c1d] animate-pulse rounded-xl" />}>
                   <ProductCarousel
                     products={productsInCat}
-                    onOpen={p => setSelectedProduct(p)}
+                    onOpen={p => navigate(`/produit/${p.id}`, { state: { background: location } })}
                     onAdd={addToCart}
                   />
                 </Suspense>

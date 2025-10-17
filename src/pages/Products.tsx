@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, lazy } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Product } from "../types/product";
 import { Header } from "../components/Header";
 import { ProductCard } from "../components/ProductCard";
 import { AdminProductForm } from "../components/AdminProductForm";
-import { useSearchParams, useParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useParams, useNavigate, useLocation } from "react-router-dom";
 import { Footer } from "../components/Footer";
 import { useCart } from "../components/useCart";
 
@@ -25,6 +25,7 @@ export default function Produits() {
   const [searchParams] = useSearchParams();
   const params = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { cart, addToCart, updateCart } = useCart();
 
@@ -32,13 +33,9 @@ export default function Produits() {
   useEffect(() => {
     const catFromQuery = searchParams.get("category");
     const subFromQuery = searchParams.get("subcategory");
-    const subFromPath = params.subcategory;
-
     setSelectedCategory(catFromQuery ?? null);
-    if (subFromQuery) setSelectedSubcategory(subFromQuery);
-    else if (subFromPath) setSelectedSubcategory(subFromPath);
-    else setSelectedSubcategory(null);
-  }, [searchParams, params]);
+    setSelectedSubcategory(subFromQuery ?? null);
+  }, [searchParams]);
 
   // --- Rôle utilisateur
   useEffect(() => {
@@ -60,25 +57,19 @@ export default function Produits() {
 
   // --- Fetch produits
   useEffect(() => {
-  async function fetchProducts() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("is_hidden", false);  // 👈 on ne récupère que les produits visibles
+    async function fetchProducts() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_hidden", false);
 
-    if (error) {
-      console.error(error);
-    } else {
-      setProducts(data || []);
+      if (!error) setProducts(data || []);
+      else console.error(error);
+      setLoading(false);
     }
-
-    setLoading(false);
-  }
-
-  fetchProducts();
-}, []);
-
+    fetchProducts();
+  }, []);
 
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category).filter(Boolean))), [products]);
   const subcategories = useMemo(
@@ -104,6 +95,14 @@ export default function Produits() {
       return matchesSearch && matchesCategory && matchesSubcategory && matchesPrice;
     });
   }, [query, products, selectedCategory, selectedSubcategory, priceRange]);
+
+  // 🔹 Modal via URL directe
+  useEffect(() => {
+    if (params.id && products.length) {
+      const prod = products.find(p => p.id === params.id);
+      if (prod) setSelectedProduct(prod);
+    }
+  }, [params.id, products]);
 
   return (
     <div className="min-h-screen bg-[#111213] text-[#ffc272]">
@@ -131,7 +130,6 @@ export default function Produits() {
                 ))}
               </div>
             </div>
-
             {selectedCategory && subcategories.length > 0 && (
               <div>
                 <h3 className="text-4xl mb-5 text-center">Sous-catégories</h3>
@@ -143,7 +141,6 @@ export default function Produits() {
                 </div>
               </div>
             )}
-
             <div>
               <h3 className="text-3xl mb-2 text-center">Prix</h3>
               <input type="range" min={0} max={1000} value={priceRange[1]} onChange={(e) => setPriceRange([0, Number(e.target.value)])} className="w-full accent-[#ffc272]" />
@@ -163,7 +160,7 @@ export default function Produits() {
                     <ProductCard
                       key={p.id}
                       product={p}
-                      onOpen={() => setSelectedProduct(p)}
+                      onOpen={() => navigate(`/produit/${p.id}`, { state: { background: location } })}
                       onAdd={addToCart}
                     />
                   ))}
@@ -173,11 +170,13 @@ export default function Produits() {
         </div>
 
         {selectedProduct && (
-          <ProductModal
-            product={selectedProduct}
-            onClose={() => setSelectedProduct(null)}
-            onAdd={addToCart}
-          />
+          <Suspense fallback={null}>
+            <ProductModal
+              product={selectedProduct}
+              onClose={() => setSelectedProduct(null)}
+              onAdd={addToCart}
+            />
+          </Suspense>
         )}
       </div>
 
