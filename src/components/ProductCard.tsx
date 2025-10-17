@@ -77,7 +77,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
         </div>
       )}
       <div
-        className="p-4 cursor-zoom-in bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition flex flex-col sm:h-auto lg:min-h-96"
+        className="p-4 cursor-zoom-in bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition flex flex-col min-h-96"
         onClick={onOpen}
       >
 
@@ -90,7 +90,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
                 alt={product.title}
                 loading="lazy"
                 decoding="async"
-                className="object-contain w-full h-full rounded-md"
+                className="object-contain w-48 h-40 rounded-md"
               />
             ) : (
               <span className="text-gray-400 text-sm">Pas d'image</span>
@@ -114,7 +114,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
                     e.stopPropagation();
                     setSelectedTaille(taille);
                   }}
-                  className={`px-2 py-1 text-xs rounded border ${selectedTaille === taille
+                  className={`px-2 py-1 mx-x text-xs rounded border ${selectedTaille === taille
                     ? "bg-[#ffc272] text-black border-[#ffc272]"
                     : "bg-transparent text-white border-gray-600 hover:border-[#ffc272]"
                     }`}

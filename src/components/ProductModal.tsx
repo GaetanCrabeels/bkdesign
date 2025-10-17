@@ -78,7 +78,7 @@ export default function ProductModal({ product, onClose, onAdd, isProductPage }:
             alt={product.title}
             loading="eager"
             decoding="async"
-            className="rounded object-cover w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-auto"
+            className="rounded w-auto h-80"
           />
 
           {/* Infos produit */}

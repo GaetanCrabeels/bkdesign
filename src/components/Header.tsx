@@ -117,7 +117,7 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="hidden lg:flex text-xl justify-center flex-wrap md:flex-nowrap gap-6 text-[#ffc272] z-20">
+        <nav className="hidden lg:flex text-xl justify-center flex-wrap md:flex-nowrap gap-6 text-[#ffc272] z-50">
           {categories.map((cat) => (
             <Link
               key={cat}
@@ -130,7 +130,7 @@ export function Header({ cartCount, onOpenCart, categories }: HeaderProps) {
         </nav>
 
         {/* Panier + Auth */}
-        <div className="flex items-end justify-end gap-1 z-[0]">
+        <div className="flex items-end justify-end gap-1 z-50">
           {/* Panier */}
           {/* --- Bouton Panier Flottant --- */}
           <button

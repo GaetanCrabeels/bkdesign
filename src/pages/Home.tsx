@@ -76,10 +76,27 @@ export default function Home() {
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-[#ffc272] drop-shadow-lg mb-6 sm:mb-8">
             Bienvenue dans notre e-Shop
           </h1>
-          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
+          <p className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#ffc272] mb-6">
+            CONCEPT STORE DÉCO, MODE & ÉNERGIE
+          </p>
+
+          <p className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-justify">
             Découvrez un univers unique où se rencontrent :
           </p>
 
+          <ul className="max-w-4xl text-base sm:text-lg md:text-xl leading-relaxed text-[#d6b98d] mb-4 mx-4 text-left list-disc list-inside space-y-2">
+            <li>Décoration intérieure : cadres, vases, fleurs artificielles, objets design...</li>
+            <li>Pierres naturelles & bijoux énergétiques : minéraux, bijoux, encens, spiritualité...</li>
+            <li>Mode chic : vestes en fausse fourrure & accessoires tendance.</li>
+          </ul>
+
+          <p className="max-w-4xl text-base sm:text- md:text-xl leading-relaxed text-[#d6b98d] mb-6 mx-4 text-justify">
+            Un lieu moderne, inspirant et raffiné pour sublimer votre intérieur, votre style et votre énergie.
+          </p>
+
+          <p className="max-w-4xl sm:text-lg leading-relaxed text-[#d6b98d] mb-6 mx-4 text-center font-semibold">
+            MONS - RUE DES FRIPIERS 22B
+          </p>
           <div className="w-full max-w-5xl min-h-5 overflow-hidden rounded-xl mb-0">
             <AutoCarousel />
           </div>

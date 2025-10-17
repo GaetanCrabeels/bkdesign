@@ -16,6 +16,9 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
   const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
   const [bpostReference, setBpostReference] = useState<string | null>(null);
 
+  // -----------------------------
+  // Effet pour initialiser l'utilisateur et récupérer le panier
+  // -----------------------------
   useEffect(() => {
     const initUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -31,11 +34,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
         if (data?.panier) onUpdateCart(data.panier);
       }
     };
-    useEffect(() => {
-      if (total >= 75) {
-        setShippingCost(0);
-      }
-    }, [total]);
 
     initUser();
 
@@ -44,8 +42,28 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     });
 
     return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [onUpdateCart]);
 
+  // -----------------------------
+  // Effet pour gérer la gratuité des frais de port
+  // -----------------------------
+  const total = items.reduce((acc, item) => {
+    const promo = item.variant?.promotion || 0;
+    const price = promo > 0 ? item.price * (1 - promo / 100) : item.price;
+    return acc + price * item.qty;
+  }, 0);
+
+  useEffect(() => {
+    if (total >= 75) {
+      setShippingCost(0);
+    }
+  }, [total]);
+
+  const totalWithShipping = total + shippingCost;
+
+  // -----------------------------
+  // Fonctions de gestion du panier
+  // -----------------------------
   const saveCart = async (updatedItems: CartItem[]) => {
     if (!user) return;
     await supabase
@@ -58,14 +76,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     onUpdateCart(updatedItems);
     await saveCart(updatedItems);
   };
-
-  const total = items.reduce((acc, item) => {
-    const promo = item.variant?.promotion || 0;
-    const price = promo > 0 ? item.price * (1 - promo / 100) : item.price;
-    return acc + price * item.qty;
-  }, 0);
-
-  const totalWithShipping = total + shippingCost;
 
   const increaseQty = async (id: string) => {
     const updated = items.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i);
@@ -83,7 +93,9 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     await updateCart(updated);
   };
 
-  // 🔹 Checkout Stripe
+  // -----------------------------
+  // Checkout Stripe
+  // -----------------------------
   const handleCheckout = async () => {
     if (!items.length) return;
 
@@ -94,7 +106,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
         items,
         customerEmail: user?.email,
         shippingCost,
-        orderReference: bpostReference, // 🟡 la même ref que celle de BPOST
+        orderReference: bpostReference,
       }),
     });
 
@@ -103,11 +115,12 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     else alert("Erreur lors de la création de la session Stripe");
   };
 
-
-  // 🔹 BPOST popup + confirmation
+  // -----------------------------
+  // BPOST popup + confirmation
+  // -----------------------------
   const handleBpost = async () => {
     if (!deliveryConfirmed) {
-      // 📦 1) On lance BPOST et récupère les params
+      // 1) On lance BPOST et récupère les params
       const res = await fetch("https://bkdesign.onrender.com/bpost/get-shm-params", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,11 +128,9 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
       });
 
       const params = await res.json();
-
-      // ⚠️ params.orderReference est notre référence unique générée pour BPOST
       const bpostOrderRef = params.orderReference;
 
-      // 🪟 2) On ouvre la popup
+      // 2) On ouvre la popup
       const popup = window.open("", "BPOST", "width=1024,height=768");
       const form = document.createElement("form");
       form.method = "POST";
@@ -138,7 +149,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
       form.submit();
       document.body.removeChild(form);
 
-      // ⏳ 3) Poll jusqu’à ce que les frais soient disponibles
+      // 3) Poll jusqu’à ce que les frais soient disponibles
       const checkShippingCost = setInterval(async () => {
         try {
           const confirmRes = await fetch(
@@ -160,12 +171,14 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
         }
       }, 1500);
     } else {
-      // 🚀 4) Si la livraison est confirmée, lancer Stripe
+      // Si la livraison est confirmée, lancer Stripe
       handleCheckout();
     }
   };
 
-
+  // -----------------------------
+  // JSX du composant
+  // -----------------------------
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-end z-50">
       <div className="bg-[#111213] sm:w-96 w-full max-h-screen p-6 shadow-xl flex flex-col rounded-l-lg">
