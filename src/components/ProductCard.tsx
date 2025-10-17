@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Product, CartItem } from "../types/product";
+import { useNavigate } from "react-router-dom";
 
 export interface ProductCardProps {
   product: Product;
@@ -21,6 +22,7 @@ export interface ProductVariant {
 export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedTaille, setSelectedTaille] = useState<string>("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function fetchVariants() {
@@ -36,6 +38,11 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
     }
     fetchVariants();
   }, [product.id]);
+  const handleOpen = (e: React.MouseEvent) => {
+  e.stopPropagation();
+  navigate(`/e-shop/produit/${product.id}`, { state: { background: location } });
+};
+
 
   const selectedVariant = variants.find(v => v.taille === selectedTaille);
   const promo = selectedVariant?.promotion || 0;
@@ -58,7 +65,9 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
   };
 
   return (
+
     <div>
+
       {promo > 0 && (
         <div
           className="absolute text-white text-xs sm:text-sm font-bold px-2 py-1 rounded-full shadow-md"
@@ -67,12 +76,13 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
           -{promo}%
         </div>
       )}
-
       <div
-        className="p-4 bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition cursor-pointer flex flex-col sm:h-auto lg:min-h-96"
+        className="p-4 cursor-zoom-in bg-[#111213] border border-[#2a2b2c] rounded-md shadow hover:shadow-lg transition flex flex-col sm:h-auto lg:min-h-96"
         onClick={onOpen}
       >
+
         <div className="flex-1 flex flex-col h-auto">
+          
           <div className="w-full sm:h-40 md:h-44 lg:h-48 flex justify-center items-center border-gray-600 rounded-md mb-4 overflow-hidden">
             {product.image_url ? (
               <img
@@ -96,7 +106,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
 
 
           {taillesDisponibles.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
+            <div className="flex flex-wrap gap-2 mb-2 items-center justify-center">
               {taillesDisponibles.map(taille => (
                 <button
                   key={taille}
@@ -126,6 +136,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
             )}
           </div>
         </div>
+        
 
         {onAdd && (
           <button
@@ -133,11 +144,13 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
               e.stopPropagation();
               handleAdd();
             }}
-            className="mt-auto px-3 py-1.5 sm:px-0 sm:py-2 bg-[#ffc272] text-[#111213] text-sm lg:text-sm rounded hover:bg-[#e6aa50] transition-colors"
+            className="mx-auto  flex justify-center items-center w-2/3 px-3 py-1.5 sm:px-0 sm:py-2 bg-[#ffc272] text-[#111213] text-sm lg:text-sm rounded hover:bg-[#e6aa50] transition-colors"
           >
             Ajouter au panier
           </button>
+          
         )}
+        
       </div>
     </div>
   );
