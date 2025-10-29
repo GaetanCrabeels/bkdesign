@@ -94,12 +94,21 @@ app.post("/bpost/get-shm-params", (req, res) => {
 });
 
 // Confirmation BPOST
+// Confirmation BPOST
 app.all("/bpost/confirm", (req, res) => {
-  const { orderReference, deliveryMethodPriceTotal } = { ...req.query, ...req.body };
+  // On récupère tous les params envoyés par BPOST (query + body)
+  const { orderReference, deliveryMethodPriceTotal, customerEmail } = { ...req.query, ...req.body };
+
   if (!orderReference || !deliveryMethodPriceTotal) return res.status(400).send("Paramètres manquants");
 
+  // On initialise l'objet order si besoin
   if (!orders[orderReference]) orders[orderReference] = { shippingCost: null, items: [] };
+
+  // On met à jour le coût de livraison
   orders[orderReference].shippingCost = Number(deliveryMethodPriceTotal) / 100;
+
+  // ⚡ On stocke l'email saisi dans BPOST
+  if (customerEmail) orders[orderReference].customerEmail = customerEmail;
 
   res.send(`
     <html>
@@ -112,6 +121,7 @@ app.all("/bpost/confirm", (req, res) => {
     </html>
   `);
 });
+
 
 // Endpoint pour récupérer les frais
 app.get("/bpost/get-shipping", (req, res) => {
