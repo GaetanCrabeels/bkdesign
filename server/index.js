@@ -296,41 +296,69 @@ app.post("/stripe/webhook", bodyParser.raw({ type: "application/json" }), async 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const orderReference = session.client_reference_id;
-    const order = orders[orderReference];
 
     console.log("✅ Paiement confirmé pour la commande :", orderReference);
 
-    if (order && order.items) {
-      for (const item of order.items) {
-        const variantId = item.variant?.id;
-        const qty = item.qty;
-        if (!variantId || !qty) continue;
+    // 🔹 On récupère la commande dans Supabase
+    const { data: orderData, error: orderError } = await supabase
+      .from("orders")
+      .select("items")
+      .eq("order_reference", orderReference)
+      .single();
 
-        const { data: variant, error: fetchError } = await supabase
-          .from("product_variants")
-          .select("quantity")
-          .eq("id", variantId)
-          .single();
-
-        if (fetchError || !variant) { console.error(`❌ Impossible de récupérer ${item.title}`, fetchError); continue; }
-
-        const newQty = Math.max(variant.quantity - qty, 0);
-
-        const { error: updateError } = await supabase
-          .from("product_variants")
-          .update({ quantity: newQty })
-          .eq("id", variantId);
-
-        if (updateError) console.error(`❌ Erreur MAJ stock pour ${item.title}`, updateError);
-        else console.log(`📉 Stock mis à jour pour ${item.title} (-${qty})(${variantId})`);
-      }
-    } else {
-      console.warn(`⚠️ Aucun item trouvé pour la commande ${orderReference}`);
+    if (orderError || !orderData) {
+      console.error("❌ Impossible de récupérer la commande dans Supabase :", orderError);
+      return res.status(404).send("Commande introuvable");
     }
+
+    // 🧩 On parse les items si c’est une string
+    const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      console.warn(`⚠️ Aucun item trouvé pour la commande ${orderReference}`);
+      return res.json({ received: true });
+    }
+
+    // 🔹 On met à jour le stock pour chaque produit
+    for (const item of items) {
+      const variantId = item.variant?.id;
+      const qty = item.qty;
+      if (!variantId || !qty) continue;
+
+      const { data: variant, error: fetchError } = await supabase
+        .from("product_variants")
+        .select("quantity")
+        .eq("id", variantId)
+        .single();
+
+      if (fetchError || !variant) {
+        console.error(`❌ Impossible de récupérer ${item.title}`, fetchError);
+        continue;
+      }
+
+      const newQty = Math.max(variant.quantity - qty, 0);
+
+      const { error: updateError } = await supabase
+        .from("product_variants")
+        .update({ quantity: newQty })
+        .eq("id", variantId);
+
+      if (updateError)
+        console.error(`❌ Erreur MAJ stock pour ${item.title}`, updateError);
+      else
+        console.log(`📉 Stock mis à jour pour ${item.title} (-${qty}) [${variantId}]`);
+    }
+
+    // ✅ On peut aussi marquer la commande comme "paid"
+    await supabase
+      .from("orders")
+      .update({ status: "paid", updated_at: new Date().toISOString() })
+      .eq("order_reference", orderReference);
   }
 
   res.json({ received: true });
 });
+
 
 /* -------------------------------------------------------------------------- */
 /*                              LANCEMENT SERVER                              */
