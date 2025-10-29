@@ -141,17 +141,24 @@ app.get("/ping", (req, res) => res.json({ status: "alive", timestamp: Date.now()
 /* -------------------------------------------------------------------------- */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items, shippingCost, orderReference } = req.body;
+    const { orderReference, userId, shippingCost } = req.body;
 
-    if (!orderReference || !orders[orderReference]) {
-      return res.status(400).json({ error: "Commande introuvable" });
-    }
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("panier")
+      .eq("id", userId)
+      .single();
 
-    // ⚠️ Récupérer l'email stocké dans l'objet order (provenant de BPOST)
-    const customerEmail = orders[orderReference].customerEmail;
+    if (error) return res.status(404).json({ error: "Profil introuvable" });
+
+    const panier = profile?.panier ? JSON.parse(profile.panier) : [];
+    const order = panier.find(p => p.orderReference === orderReference);
+    if (!order) return res.status(404).json({ error: "Commande introuvable" });
+
+    const customerEmail = order.customerEmail;
     if (!customerEmail) return res.status(400).json({ error: "Email requis" });
 
-    const line_items = items.map(item => {
+    const line_items = order.map(item => {
       const promo = item.variant?.promotion || 0;
       const priceWithPromo = item.price * (1 - promo / 100);
       return {
@@ -175,7 +182,6 @@ app.post("/create-checkout-session", async (req, res) => {
       });
     }
 
-    // ⚡ Création de la session Stripe
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
@@ -192,10 +198,12 @@ app.post("/create-checkout-session", async (req, res) => {
 
     res.json({ url: session.url });
   } catch (err) {
-    console.error("❌ Stripe error:", err);
-    res.status(500).json({ error: "Erreur création session Stripe" });
+    console.error("❌ Stripe checkout error:", err);
+    res.status(500).json({ error: "Impossible de créer la session Stripe" });
   }
 });
+
+
 
 
 // Relancer le paiement
