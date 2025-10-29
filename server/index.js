@@ -358,6 +358,39 @@ app.post("/stripe/webhook", bodyParser.raw({ type: "application/json" }), async 
 
   res.json({ received: true });
 });
+/* -------------------------------------------------------------------------- */
+/*                            GET ORDER (pour Confirm)                        */
+/* -------------------------------------------------------------------------- */
+app.get("/api/order/:orderReference", async (req, res) => {
+  const { orderReference } = req.params;
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("order_reference", orderReference)
+    .single();
+
+  if (error || !data) {
+    console.error("❌ Erreur récupération commande:", error);
+    return res.status(404).json({ message: "Commande introuvable" });
+  }
+
+  // Si les items sont stockés sous forme de texte JSON, on les parse
+  const items = typeof data.items === "string" ? JSON.parse(data.items) : data.items;
+
+  const total =
+    items.reduce((acc, item) => acc + item.price * item.qty, 0) +
+    (data.shipping_cost || 0);
+
+  res.json({
+    orderReference: data.order_reference,
+    email: data.customer_email,
+    items,
+    shippingCost: data.shipping_cost || 0,
+    total,
+    status: data.status,
+  });
+});
 
 
 /* -------------------------------------------------------------------------- */
