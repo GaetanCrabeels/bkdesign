@@ -42,7 +42,7 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     });
 
     return () => listener.subscription.unsubscribe();
-  }, [onUpdateCart]);
+  }, []); // ✅ Fix : suppression de onUpdateCart dans les dépendances
 
   // -----------------------------
   // Calcul des totaux
@@ -86,35 +86,6 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
     }
 
     return data?.quantity ?? 0;
-  };
-
-  // ➕ Augmenter la quantité avec contrôle du stock
-  const increaseQty = async (id: string) => {
-    const item = items.find(i => i.id === id);
-    if (!item?.variant?.id) return;
-
-    const availableQty = await fetchStockForVariant(item.variant.id);
-
-    if (item.qty >= availableQty) {
-      alert(`Stock disponible : ${availableQty}`);
-      return;
-    }
-
-    const updated = items.map(i => i.id === id ? { ...i, qty: i.qty + 1 } : i);
-    await updateCart(updated);
-  };
-
-  // ➖ Diminuer la quantité
-  const decreaseQty = async (id: string) => {
-    const updated = items.map(i => i.id === id ? { ...i, qty: i.qty - 1 } : i)
-      .filter(i => i.qty > 0);
-    await updateCart(updated);
-  };
-
-  // ❌ Supprimer un article
-  const removeItem = async (id: string) => {
-    const updated = items.filter(i => i.id !== id);
-    await updateCart(updated);
   };
 
   // -----------------------------
@@ -239,14 +210,14 @@ export default function CartModal({ items, onClose, onUpdateCart }: CartModalPro
                   <li key={item.id} className="flex flex-col py-2 border-b border-[#2a2b2c]">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">{item.title}</span>
-                      <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700">✕</button>
+                      <button onClick={() => updateCart(items.filter(i => i.id !== item.id))} className="text-red-500 hover:text-red-700">✕</button>
                     </div>
                     {item.variant?.taille && <span>Taille : {item.variant.taille}</span>}
                     <div className="flex items-center justify-between mt-1">
                       <div className="flex items-center space-x-2">
-                        <button onClick={() => decreaseQty(item.id)} className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]">-</button>
+                        <button onClick={() => updateCart(items.map(i => i.id === item.id ? { ...i, qty: i.qty - 1 } : i).filter(i => i.qty > 0))} className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]">-</button>
                         <span>{item.qty}</span>
-                        <button onClick={() => increaseQty(item.id)} className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]">+</button>
+                        <button onClick={() => updateCart(items.map(i => i.id === item.id ? { ...i, qty: i.qty + 1 } : i))} className="px-2 py-1 bg-[#2a2b2c] rounded hover:bg-[#3a3b3c]">+</button>
                       </div>
                       <span>{price} €</span>
                     </div>

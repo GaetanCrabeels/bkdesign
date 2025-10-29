@@ -65,7 +65,13 @@ export function AdminProductForm({ userRole, onProductsChange }) {
         setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, is_hidden: newValue } : p)));
     };
     const addVariant = () => setVariants([...variants, { taille: "", poids: 0, promotion: 0, quantity: 0 }]);
-    const removeVariant = (i) => setVariants(variants.filter((_, idx) => idx !== i));
+    const removeVariant = (i) => {
+        if (variants.length <= 1) {
+            alert("Un produit doit avoir au moins une variante.");
+            return;
+        }
+        setVariants(variants.filter((_, idx) => idx !== i));
+    };
     const toggleCategory = (category) => setOpenCategories((prev) => ({ ...prev, [category]: !prev[category] }));
     const toggleSubcategory = (category, subcategory) => {
         const key = `${category}-${subcategory}`;
