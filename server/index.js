@@ -5,7 +5,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import bodyParser from "body-parser";
 import { createClient } from "@supabase/supabase-js";
-import fetch from "node-fetch"; // npm install node-fetch
+import fetch from "node-fetch";
 
 dotenv.config();
 const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
@@ -13,14 +13,13 @@ const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
 const app = express();
 app.use(cors());
 
-// ⚠️ On ne met pas express.json() globalement pour ne pas casser Stripe webhook
+// ⚠️ Ne pas utiliser express.json() globalement pour webhook Stripe
 app.use((req, res, next) => {
-  if (req.originalUrl === "/stripe/webhook") {
-    next();
-  } else {
-    express.json()(req, res, next);
-  }
+  if (req.originalUrl === "/stripe/webhook") next();
+  else express.json()(req, res, next);
 });
+
+app.use(express.urlencoded({ extended: true }));
 
 // Auto-ping Render pour garder l'app awake
 setInterval(async () => {
@@ -32,15 +31,8 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
-app.use(express.urlencoded({ extended: true }));
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2022-11-15" });
-
-// Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
-// Stockage temporaire des commandes
-const orders = {};
 
 /* -------------------------------------------------------------------------- */
 /*                               BPOST SHIPPING                               */
@@ -52,11 +44,9 @@ function generateBpostChecksum(params, passphrase) {
     customerCountry: params.customerCountry,
     orderReference: params.orderReference,
   };
-
   if (params.costCenter) fieldsToInclude.costCenter = params.costCenter;
   if (params.orderWeight) fieldsToInclude.orderWeight = params.orderWeight;
-  if (params.deliveryMethodsOverrides)
-    fieldsToInclude.deliveryMethodsOverrides = params.deliveryMethodsOverrides;
+  if (params.deliveryMethodsOverrides) fieldsToInclude.deliveryMethodsOverrides = params.deliveryMethodsOverrides;
   if (params.extraSecure) fieldsToInclude.extraSecure = params.extraSecure;
 
   const concatenated =
@@ -68,7 +58,6 @@ function generateBpostChecksum(params, passphrase) {
   return crypto.createHash("sha256").update(concatenated, "utf8").digest("hex");
 }
 
-// Récupération des params pour popup BPOST
 app.post("/bpost/get-shm-params", async (req, res) => {
   const { items, country, customerEmail } = req.body;
   const orderReference = Date.now().toString();
@@ -85,7 +74,6 @@ app.post("/bpost/get-shm-params", async (req, res) => {
 
   params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
 
-  // Stockage dans Supabase
   const { error } = await supabase.from("orders").insert({
     order_reference: orderReference,
     customer_email: customerEmail,
@@ -102,8 +90,6 @@ app.post("/bpost/get-shm-params", async (req, res) => {
   res.json(params);
 });
 
-// Confirmation BPOST
-// Confirmation BPOST
 app.all("/bpost/confirm", async (req, res) => {
   const { orderReference, deliveryMethodPriceTotal, customerEmail } = { ...req.query, ...req.body };
 
@@ -135,26 +121,13 @@ app.all("/bpost/confirm", async (req, res) => {
   `);
 });
 
-
-// Endpoint pour récupérer les frais
 app.get("/bpost/get-shipping", async (req, res) => {
   const { orderReference } = req.query;
-
   if (!orderReference) return res.status(400).json({ error: "orderReference manquant" });
 
-  const { data, error } = await supabase
-    .from("orders")
-    .select("shipping_cost")
-    .eq("order_reference", orderReference)
-    .single();
-
-  if (error || !data) {
-    console.error("❌ Erreur récupération commande :", error);
-    return res.status(404).json({ message: "Commande introuvable" });
-  }
-
-  if (data.shipping_cost === null)
-    return res.status(404).json({ message: "Frais non disponibles" });
+  const { data, error } = await supabase.from("orders").select("shipping_cost").eq("order_reference", orderReference).single();
+  if (error || !data) return res.status(404).json({ message: "Commande introuvable" });
+  if (data.shipping_cost === null) return res.status(404).json({ message: "Frais non disponibles" });
 
   res.json({ shippingCost: data.shipping_cost });
 });
@@ -167,53 +140,50 @@ app.get("/ping", (req, res) => res.json({ status: "alive", timestamp: Date.now()
 /* -------------------------------------------------------------------------- */
 /*                               STRIPE CHECKOUT                              */
 /* -------------------------------------------------------------------------- */
+function computeLineItems(items, shippingCost) {
+  // Total articles
+  const itemsTotal = items.reduce((acc, item) => acc + item.price * (1 - (item.variant?.promotion || 0) / 100) * item.qty, 0);
+  const finalShippingCost = itemsTotal > 75 ? 0 : shippingCost;
+
+  const line_items = items.map(item => {
+    const promo = item.variant?.promotion || 0;
+    const priceWithPromo = item.price * (1 - promo / 100);
+    return {
+      price_data: {
+        currency: "eur",
+        product_data: { name: item.title },
+        unit_amount: Math.round(priceWithPromo * 100)
+      },
+      quantity: item.qty
+    };
+  });
+
+  if (finalShippingCost > 0) {
+    line_items.push({
+      price_data: {
+        currency: "eur",
+        product_data: { name: "Frais de livraison" },
+        unit_amount: Math.round(finalShippingCost * 100)
+      },
+      quantity: 1
+    });
+  }
+
+  return line_items;
+}
+
 app.post("/create-checkout-session", async (req, res) => {
   try {
     const { orderReference } = req.body;
-
-    const { data: orderData, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("order_reference", orderReference)
-      .single();
-
+    const { data: orderData, error } = await supabase.from("orders").select("*").eq("order_reference", orderReference).single();
     if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
 
-    // 🔥 Corrige ici : parse le JSON
     const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
-
     const shippingCost = orderData.shipping_cost || 0;
     const customerEmail = orderData.customer_email;
-
     if (!customerEmail) return res.status(400).json({ error: "Email requis" });
 
-    // Vérification
-    if (!Array.isArray(items) || items.length === 0)
-      return res.status(400).json({ error: "Articles invalides" });
-
-    const line_items = items.map((item) => {
-      const promo = item.variant?.promotion || 0;
-      const priceWithPromo = item.price * (1 - promo / 100);
-      return {
-        price_data: {
-          currency: "eur",
-          product_data: { name: item.title },
-          unit_amount: Math.round(priceWithPromo * 100),
-        },
-        quantity: item.qty,
-      };
-    });
-
-    if (shippingCost > 0) {
-      line_items.push({
-        price_data: {
-          currency: "eur",
-          product_data: { name: "Frais de livraison" },
-          unit_amount: Math.round(shippingCost * 100),
-        },
-        quantity: 1,
-      });
-    }
+    const line_items = computeLineItems(items, shippingCost);
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -225,8 +195,8 @@ app.post("/create-checkout-session", async (req, res) => {
       cancel_url: `${process.env.CLIENT_URL}error?orderReference=${orderReference}`,
       payment_intent_data: {
         metadata: { bpost_order_reference: orderReference },
-        description: `Commande #${orderReference}`,
-      },
+        description: `Commande #${orderReference}`
+      }
     });
 
     res.json({ url: session.url });
@@ -236,52 +206,18 @@ app.post("/create-checkout-session", async (req, res) => {
   }
 });
 
-
-
-// Relancer le paiement
 app.post("/retry-checkout", async (req, res) => {
   try {
     const { orderReference, customerEmail } = req.body;
-    if (!orderReference || !customerEmail)
-      return res.status(400).json({ error: "Informations manquantes" });
+    if (!orderReference || !customerEmail) return res.status(400).json({ error: "Informations manquantes" });
 
-    // Récupérer la commande depuis Supabase
-    const { data: orderData, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("order_reference", orderReference)
-      .single();
-
+    const { data: orderData, error } = await supabase.from("orders").select("*").eq("order_reference", orderReference).single();
     if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
-    if (orderData.status === "paid") {
-    return res.status(400).json({ error: "Cette commande est déjà payée" });
-  }
+    if (orderData.status === "paid") return res.status(400).json({ error: "Cette commande est déjà payée" });
+
     const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
     const shippingCost = orderData.shipping_cost || 0;
-
-    const line_items = items.map(item => {
-      const promo = item.variant?.promotion || 0;
-      const priceWithPromo = item.price * (1 - promo / 100);
-      return {
-        price_data: {
-          currency: "eur",
-          product_data: { name: item.title },
-          unit_amount: Math.round(priceWithPromo * 100)
-        },
-        quantity: item.qty
-      };
-    });
-
-    if (shippingCost > 0) {
-      line_items.push({
-        price_data: {
-          currency: "eur",
-          product_data: { name: "Frais de livraison" },
-          unit_amount: Math.round(shippingCost * 100)
-        },
-        quantity: 1
-      });
-    }
+    const line_items = computeLineItems(items, shippingCost);
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -324,99 +260,53 @@ app.post("/stripe/webhook", bodyParser.raw({ type: "application/json" }), async 
 
     console.log("✅ Paiement confirmé pour la commande :", orderReference);
 
-    // 🔹 On récupère la commande dans Supabase
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .select("items")
-      .eq("order_reference", orderReference)
-      .single();
+    const { data: orderData, error: orderError } = await supabase.from("orders").select("items").eq("order_reference", orderReference).single();
+    if (orderError || !orderData) return res.status(404).send("Commande introuvable");
 
-    if (orderError || !orderData) {
-      console.error("❌ Impossible de récupérer la commande dans Supabase :", orderError);
-      return res.status(404).send("Commande introuvable");
-    }
-
-    // 🧩 On parse les items si c’est une string
     const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
 
-    if (!Array.isArray(items) || items.length === 0) {
-      console.warn(`⚠️ Aucun item trouvé pour la commande ${orderReference}`);
-      return res.json({ received: true });
-    }
-
-    // 🔹 On met à jour le stock pour chaque produit
     for (const item of items) {
       const variantId = item.variant?.id;
       const qty = item.qty;
       if (!variantId || !qty) continue;
 
-      const { data: variant, error: fetchError } = await supabase
-        .from("product_variants")
-        .select("quantity")
-        .eq("id", variantId)
-        .single();
-
-      if (fetchError || !variant) {
-        console.error(`❌ Impossible de récupérer ${item.title}`, fetchError);
-        continue;
-      }
+      const { data: variant, error: fetchError } = await supabase.from("product_variants").select("quantity").eq("id", variantId).single();
+      if (fetchError || !variant) continue;
 
       const newQty = Math.max(variant.quantity - qty, 0);
-
-      const { error: updateError } = await supabase
-        .from("product_variants")
-        .update({ quantity: newQty })
-        .eq("id", variantId);
-
-      if (updateError)
-        console.error(`❌ Erreur MAJ stock pour ${item.title}`, updateError);
-      else
-        console.log(`📉 Stock mis à jour pour ${item.title} (-${qty}) [${variantId}]`);
+      await supabase.from("product_variants").update({ quantity: newQty }).eq("id", variantId);
     }
 
-    // ✅ On peut aussi marquer la commande comme "paid"
-    await supabase
-      .from("orders")
-      .update({ status: "paid", updated_at: new Date().toISOString() })
-      .eq("order_reference", orderReference);
+    await supabase.from("orders").update({ status: "paid", updated_at: new Date().toISOString() }).eq("order_reference", orderReference);
   }
 
   res.json({ received: true });
 });
+
 /* -------------------------------------------------------------------------- */
 /*                            GET ORDER (pour Confirm)                        */
 /* -------------------------------------------------------------------------- */
 app.get("/api/order/:orderReference", async (req, res) => {
   const { orderReference } = req.params;
 
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("order_reference", orderReference)
-    .single();
+  const { data, error } = await supabase.from("orders").select("*").eq("order_reference", orderReference).single();
+  if (error || !data) return res.status(404).json({ message: "Commande introuvable" });
 
-  if (error || !data) {
-    console.error("❌ Erreur récupération commande:", error);
-    return res.status(404).json({ message: "Commande introuvable" });
-  }
-
-  // Si les items sont stockés sous forme de texte JSON, on les parse
   const items = typeof data.items === "string" ? JSON.parse(data.items) : data.items;
 
-  const total =
-    items.reduce((acc, item) => acc + item.price * item.qty, 0) +
-    (data.shipping_cost || 0);
+  const itemsTotal = items.reduce((acc, item) => acc + item.price * item.qty, 0);
+  const shippingCost = itemsTotal > 75 ? 0 : (data.shipping_cost || 0);
+  const total = itemsTotal + shippingCost;
 
   res.json({
     orderReference: data.order_reference,
     email: data.customer_email,
     items,
-    shippingCost: data.shipping_cost || 0,
+    shippingCost,
     total,
     status: data.status,
   });
 });
-
 
 /* -------------------------------------------------------------------------- */
 /*                              LANCEMENT SERVER                              */
