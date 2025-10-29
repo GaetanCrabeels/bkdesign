@@ -13,6 +13,7 @@ interface Order {
   items: OrderItem[];
   shippingCost: number;
   total: number;
+  status: string;
 }
 
 export default function Confirm() {
@@ -37,11 +38,18 @@ export default function Confirm() {
     const fetchOrder = async () => {
       try {
         const res = await fetch(`https://bkdesign.onrender.com/api/order/${orderReference}`);
-        if (!res.ok) throw new Error("Commande introuvable");
+        if (!res.ok) throw new globalThis.Error("Commande introuvable");
 
-        const data: { items: OrderItem[]; shippingCost: number } = await res.json();
+        const data = await res.json();
 
-        // ⚠️ Typage explicite pour reduce
+        // ⚠️ Vérification du status
+        if (data.status !== "paid") {
+          setOrder(null);
+          setLoading(false);
+          return;
+        }
+
+        // Calcul du total
         const totalItems: number = data.items.reduce((acc: number, i: OrderItem) => {
           const price = i.price || 0;
           const qty = i.qty || 0;
@@ -49,6 +57,7 @@ export default function Confirm() {
         }, 0);
 
         const shipping = data.shippingCost || 0;
+
         setOrder({ ...data, total: totalItems + shipping });
       } catch (err) {
         console.error(err);
@@ -67,8 +76,8 @@ export default function Confirm() {
     return (
       <div className="flex items-center justify-center h-screen bg-red-50 p-4">
         <div className="bg-white p-10 rounded-xl shadow-lg text-center">
-          <h1 className="text-3xl font-bold text-red-600 mb-4">❌ Commande introuvable</h1>
-          <p className="mb-6">Impossible de récupérer les détails de votre commande.</p>
+          <h1 className="text-3xl font-bold text-red-600 mb-4 font-serif">❌ Commande introuvable ou non payée</h1>
+          <p className="mb-6">Impossible d'afficher les détails de cette commande.</p>
           <a href="/e-shop/" className="bg-red-600 text-white px-6 py-2 rounded">
             Retour au panier
           </a>
