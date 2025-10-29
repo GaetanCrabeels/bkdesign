@@ -131,21 +131,35 @@ app.get("/ping", (req, res) => res.json({ status: "alive", timestamp: Date.now()
 /* -------------------------------------------------------------------------- */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items, customerEmail, shippingCost, orderReference } = req.body;
+    const { items, customerEmail: emailFromBody, shippingCost, orderReference } = req.body;
+
+    if (!orderReference || !orders[orderReference]) {
+      return res.status(400).json({ error: "Commande introuvable" });
+    }
+
+    const customerEmail = emailFromBody || orders[orderReference].customerEmail;
     if (!customerEmail) return res.status(400).json({ error: "Email requis" });
 
     const line_items = items.map(item => {
       const promo = item.variant?.promotion || 0;
       const priceWithPromo = item.price * (1 - promo / 100);
       return {
-        price_data: { currency: "eur", product_data: { name: item.title }, unit_amount: Math.round(priceWithPromo * 100) },
+        price_data: {
+          currency: "eur",
+          product_data: { name: item.title },
+          unit_amount: Math.round(priceWithPromo * 100)
+        },
         quantity: item.qty,
       };
     });
 
     if (shippingCost > 0) {
       line_items.push({
-        price_data: { currency: "eur", product_data: { name: "Frais de livraison" }, unit_amount: Math.round(shippingCost * 100) },
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Frais de livraison" },
+          unit_amount: Math.round(shippingCost * 100)
+        },
         quantity: 1,
       });
     }
@@ -172,6 +186,7 @@ app.post("/create-checkout-session", async (req, res) => {
     res.status(500).json({ error: "Erreur création session Stripe" });
   }
 });
+
 
 // Relancer le paiement
 app.post("/retry-checkout", async (req, res) => {
