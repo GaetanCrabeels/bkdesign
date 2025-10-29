@@ -131,13 +131,14 @@ app.get("/ping", (req, res) => res.json({ status: "alive", timestamp: Date.now()
 /* -------------------------------------------------------------------------- */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { items, customerEmail: emailFromBody, shippingCost, orderReference } = req.body;
+    const { items, shippingCost, orderReference } = req.body;
 
     if (!orderReference || !orders[orderReference]) {
       return res.status(400).json({ error: "Commande introuvable" });
     }
 
-    const customerEmail = emailFromBody || orders[orderReference].customerEmail;
+    // ⚠️ Récupérer l'email stocké dans l'objet order (provenant de BPOST)
+    const customerEmail = orders[orderReference].customerEmail;
     if (!customerEmail) return res.status(400).json({ error: "Email requis" });
 
     const line_items = items.map(item => {
@@ -164,16 +165,15 @@ app.post("/create-checkout-session", async (req, res) => {
       });
     }
 
-    orders[orderReference] = { ...orders[orderReference], items, customerEmail };
-
+    // ⚡ Création de la session Stripe
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items,
       mode: "payment",
       customer_email: customerEmail,
       client_reference_id: orderReference,
-      success_url: `${process.env.CLIENT_URL}confirm?orderReference=${orderReference}&customerEmail=${encodeURIComponent(customerEmail)}`,
-      cancel_url: `${process.env.CLIENT_URL}error?orderReference=${orderReference}&customerEmail=${encodeURIComponent(customerEmail)}`,
+      success_url: `${process.env.CLIENT_URL}confirm?orderReference=${orderReference}`,
+      cancel_url: `${process.env.CLIENT_URL}error?orderReference=${orderReference}`,
       payment_intent_data: {
         metadata: { bpost_order_reference: orderReference },
         description: `Commande #${orderReference}`,
