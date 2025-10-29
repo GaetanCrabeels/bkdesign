@@ -102,8 +102,13 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
 
   const addVariant = () =>
     setVariants([...variants, { taille: "", poids: 0, promotion: 0, quantity: 0 }]);
-  const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
-
+  const removeVariant = (i: number) => {
+    if (variants.length <= 1) {
+      alert("Un produit doit avoir au moins une variante.");
+      return;
+    }
+    setVariants(variants.filter((_, idx) => idx !== i));
+  };
   const toggleCategory = (category: string) =>
     setOpenCategories((prev) => ({ ...prev, [category]: !prev[category] }));
 
@@ -245,7 +250,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                     <input placeholder="Taille" value={v.taille} onChange={e => handleVariantChange(i, "taille", e.target.value)} className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]" />
                     <input placeholder="Poids(gramme)" type="number" value={v.poids === 0 ? "" : v.poids} required onChange={e => handleVariantChange(i, "poids", e.target.value)} className="p-1 rounded w-32 bg-[#1b1c1d] text-[#ffc272]" />
                     <input placeholder="Promo %" type="number" value={v.promotion === 0 ? "" : v.promotion} onChange={e => handleVariantChange(i, "promotion", e.target.value)} className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]" />
-                    <input placeholder="Quantité"type="number"value={v.quantity === 0 ? "" : v.quantity}onChange={(e) => handleVariantChange(i, "quantity", e.target.value)} className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]"/>
+                    <input placeholder="Quantité" type="number" value={v.quantity === 0 ? "" : v.quantity} onChange={(e) => handleVariantChange(i, "quantity", e.target.value)} className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]" />
                     <button type="button" onClick={() => removeVariant(i)} className="bg-red-600 px-2 rounded text-white">🗑</button>
                   </div>
                 ))}
