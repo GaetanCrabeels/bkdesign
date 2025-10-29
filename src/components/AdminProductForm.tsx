@@ -245,6 +245,7 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                     <input placeholder="Taille" value={v.taille} onChange={e => handleVariantChange(i, "taille", e.target.value)} className="p-1 rounded w-20 bg-[#1b1c1d] text-[#ffc272]" />
                     <input placeholder="Poids(gramme)" type="number" value={v.poids === 0 ? "" : v.poids} required onChange={e => handleVariantChange(i, "poids", e.target.value)} className="p-1 rounded w-32 bg-[#1b1c1d] text-[#ffc272]" />
                     <input placeholder="Promo %" type="number" value={v.promotion === 0 ? "" : v.promotion} onChange={e => handleVariantChange(i, "promotion", e.target.value)} className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]" />
+                    <input placeholder="Quantité"type="number"value={v.quantity === 0 ? "" : v.quantity}onChange={(e) => handleVariantChange(i, "quantity", e.target.value)} className="p-1 rounded w-24 bg-[#1b1c1d] text-[#ffc272]"/>
                     <button type="button" onClick={() => removeVariant(i)} className="bg-red-600 px-2 rounded text-white">🗑</button>
                   </div>
                 ))}
@@ -353,6 +354,8 @@ export function AdminProductForm({ userRole, onProductsChange }: AdminProductFor
                                                 <span><strong>Taille :</strong> {v.taille || "-"}</span>
                                                 <span><strong>Poids :</strong> {v.poids} g</span>
                                                 <span><strong>Promo :</strong> {v.promotion}%</span>
+                                                <span><strong>Quantité :</strong> {v.quantity}</span>
+
                                                 <span><strong>Prix final :</strong> €{finalPrice}</span>
                                               </div>
                                             );

@@ -37,12 +37,21 @@ export function useCart() {
         });
 
         const mergedCart = Array.from(mergedMap.values());
+        // ✅ Vérifie que les quantités ne dépassent pas le stock disponible
+        const validatedCart = mergedCart.map(item => {
+          const stock = item.variant?.quantity ?? Infinity;
+          return {
+            ...item,
+            qty: Math.min(item.qty, stock),
+          };
+        });
 
         // 5️⃣ Mettre à jour state, localStorage et DB
-        setCart(mergedCart);
-        localStorage.setItem("cart", JSON.stringify(mergedCart));
-        if (JSON.stringify(mergedCart) !== JSON.stringify(serverCart)) {
-          await supabase.from("profiles").update({ panier: mergedCart }).eq("id", currentUser.id);
+        setCart(validatedCart);
+        localStorage.setItem("cart", JSON.stringify(validatedCart));
+
+        if (JSON.stringify(validatedCart) !== JSON.stringify(serverCart)) {
+          await supabase.from("profiles").update({ panier: validatedCart }).eq("id", currentUser.id);
         }
       } else {
         // Pas connecté : juste local
@@ -67,12 +76,26 @@ export function useCart() {
   // --- Ajouter un produit
   const addToCart = (item: CartItem) => {
     const existing = cart.find(i => i.id === item.id);
+
+    // ✅ Vérifier la limite de stock
+    const maxQty = item.variant?.quantity ?? item.qty;
+    const newQty = existing ? existing.qty + item.qty : item.qty;
+
+    if (newQty > maxQty) {
+      alert(`Stock insuffisant : seulement ${maxQty} article(s) disponible(s) pour cette variante.`);
+      return;
+    }
+
+    // ✅ Mettre à jour le panier normalement
     if (existing) {
-      updateCart(cart.map(i => i.id === item.id ? { ...i, qty: i.qty + item.qty } : i));
+      updateCart(cart.map(i =>
+        i.id === item.id ? { ...i, qty: newQty } : i
+      ));
     } else {
       updateCart([...cart, item]);
     }
   };
+
 
   // --- Supprimer un produit
   const removeFromCart = (productId: string) => {

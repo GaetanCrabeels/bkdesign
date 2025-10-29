@@ -20,7 +20,12 @@ interface ProductVariant {
   created_at?: string;
 }
 
-export default function ProductModal({ product, onClose, onAdd, isProductPage }: ProductModalProps) {
+export default function ProductModal({
+  product,
+  onClose,
+  onAdd,
+  isProductPage,
+}: ProductModalProps) {
   const [qty, setQty] = useState(1);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedTaille, setSelectedTaille] = useState<string>("");
@@ -31,7 +36,9 @@ export default function ProductModal({ product, onClose, onAdd, isProductPage }:
     async function fetchVariants() {
       const { data, error } = await supabase
         .from("product_variants")
-        .select("id, produit_id, taille, poids, promotion, quantity, created_at")
+        .select(
+          "id, produit_id, taille, poids, promotion, quantity, created_at"
+        )
         .eq("produit_id", product.id);
 
       if (!error && data) {
@@ -42,21 +49,48 @@ export default function ProductModal({ product, onClose, onAdd, isProductPage }:
     fetchVariants();
   }, [product.id]);
 
-  const selectedVariant = variants.find(v => v.taille === selectedTaille);
+  const selectedVariant = variants.find((v) => v.taille === selectedTaille);
+  const stock = selectedVariant?.quantity ?? 0;
+
   const promo = selectedVariant?.promotion || 0;
   const discountedPrice =
-    promo > 0 ? (product.price * (1 - promo / 100)).toFixed(2) : product.price.toFixed(2);
+    promo > 0
+      ? (product.price * (1 - promo / 100)).toFixed(2)
+      : product.price.toFixed(2);
 
-  
   const handleClose = () => {
-  if (location.state?.background) {
-    navigate(-1); // revenir à la page précédente si modal depuis liste
-  } else {
-    navigate(`/produits?category=${encodeURIComponent(product.category)}`); // redirige si page directe
-  }
-};
+    if (location.state?.background) {
+      navigate(-1);
+    } else {
+      navigate(`/produits?category=${encodeURIComponent(product.category)}`);
+    }
+  };
 
+  const handleAdd = () => {
+    if (!selectedVariant) return;
 
+    if (stock <= 0) {
+      alert("Ce produit est en rupture de stock.");
+      return;
+    }
+
+    if (qty > stock) {
+      alert(`Stock disponible : ${stock}`);
+      setQty(stock);
+      return;
+    }
+
+    const cartItem: CartItem = {
+      id: product.id + "_" + selectedVariant.id,
+      title: product.title,
+      price: product.price,
+      qty,
+      variant: selectedVariant,
+    };
+
+    onAdd(cartItem);
+    handleClose();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -78,7 +112,7 @@ export default function ProductModal({ product, onClose, onAdd, isProductPage }:
             alt={product.title}
             loading="eager"
             decoding="async"
-            className="rounded w-auto h-80"
+            className="rounded w-auto h-60"
           />
 
           {/* Infos produit */}
@@ -102,14 +136,14 @@ export default function ProductModal({ product, onClose, onAdd, isProductPage }:
             {variants.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 mt-3 justify-center">
                 {variants
-                  .filter(v => v.taille)
-                  .map(v => (
+                  .filter((v) => v.taille)
+                  .map((v) => (
                     <button
                       key={v.id}
                       onClick={() => setSelectedTaille(v.taille)}
                       className={`px-2 py-1 text-xs sm:text-sm rounded border ${selectedTaille === v.taille
-                          ? "bg-[#ffc272] text-black border-[#ffc272]"
-                          : "bg-transparent text-black border-gray-600 hover:border-[#ffc272]"
+                        ? "bg-[#ffc272] text-black border-[#ffc272]"
+                        : "bg-transparent text-black border-gray-600 hover:border-[#ffc272]"
                         }`}
                     >
                       {v.taille}
@@ -129,38 +163,45 @@ export default function ProductModal({ product, onClose, onAdd, isProductPage }:
             </div>
 
             {/* Quantité + boutons */}
-            <div className="flex justify-center gap-2 mt-4 text-black">
-              <input
-                value={qty}
-                onChange={(e) => setQty(Number(e.target.value))}
-                type="number"
-                min={1}
-                className="w-20 sm:w-10 justify-center border rounded text-center"
-              />
+            <div className="flex flex-nowrap justify-center items-center gap-2 mt-4 text-black">
+              {stock > 0 && (
+                <input
+                  value={qty}
+                  onChange={(e) => {
+                    const value = Math.max(1, Number(e.target.value));
+                    if (value > stock) {
+                      alert(`Stock disponible : ${stock}`);
+                      setQty(stock);
+                    } else {
+                      setQty(value);
+                    }
+                  }}
+                  type="number"
+                  min={1}
+                  max={stock}
+                  className="w-20 sm:w-10 justify-center border rounded text-center"
+                />
+              )}
+
               <button
-                onClick={() => {
-                  if (!selectedVariant) return;
-                  const cartItem: CartItem = {
-                    id: product.id + "_" + selectedVariant.id,
-                    title: product.title,
-                    price: product.price,
-                    qty,
-                    variant: selectedVariant,
-                  };
-                  onAdd(cartItem);
-                  handleClose();
-                }}
-                className="px-4 py-2 bg-[#ca7322] text-white rounded hover:bg-[#ffc272] transition-colors text-sm sm:text-base"
+                onClick={handleAdd}
+                disabled={stock <= 0}
+                className={`whitespace-nowrap px-4 py-2 rounded transition-colors text-xs sm:text-base ${stock > 0
+                    ? "bg-[#ca7322] text-white hover:bg-[#ffc272]"
+                    : "bg-gray-500 text-gray-300 cursor-not-allowed"
+                  }`}
               >
-                Ajouter
+                {stock > 0 ? "Ajouter" : "Rupture de stock"}
               </button>
+
               <button
                 onClick={handleClose}
-                className="px-4 py-2 bg-[#ca7322] text-white hover:bg-[#ffc272] rounded transition-colors text-sm sm:text-base"
+                className="whitespace-nowrap px-4 py-2 bg-[#ca7322] text-white hover:bg-[#ffc272] rounded transition-colors text-xs sm:text-base"
               >
                 Fermer
               </button>
             </div>
+
           </div>
         </div>
       </div>

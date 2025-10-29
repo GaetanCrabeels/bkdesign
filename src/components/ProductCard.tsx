@@ -39,9 +39,9 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
     fetchVariants();
   }, [product.id]);
   const handleOpen = (e: React.MouseEvent) => {
-  e.stopPropagation();
-  navigate(`/e-shop/produit/${product.id}`, { state: { background: location } });
-};
+    e.stopPropagation();
+    navigate(`/e-shop/produit/${product.id}`, { state: { background: location } });
+  };
 
 
   const selectedVariant = variants.find(v => v.taille === selectedTaille);
@@ -53,8 +53,13 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
   const handleAdd = () => {
     if (!selectedVariant || !onAdd) return;
 
+    if (selectedVariant?.quantity !== undefined && selectedVariant.quantity <= 0) {
+      alert("Ce produit est en rupture de stock.");
+      return;
+    }
+
     const cartItem: CartItem = {
-      id: product.id + "_" + selectedVariant.taille, // unique par variante
+      id: product.id + "_" + selectedVariant.taille,
       title: product.title,
       price: product.price,
       qty: 1,
@@ -63,6 +68,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
 
     onAdd(cartItem);
   };
+
 
   return (
 
@@ -82,7 +88,7 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
       >
 
         <div className="flex-1 flex flex-col h-auto">
-          
+
           <div className="w-full sm:h-40 md:h-44 lg:h-48 flex justify-center items-center border-gray-600 rounded-md mb-4 overflow-hidden">
             {product.image_url ? (
               <img
@@ -136,21 +142,29 @@ export function ProductCard({ product, onAdd, onOpen }: ProductCardProps) {
             )}
           </div>
         </div>
-        
+
 
         {onAdd && (
           <button
-            onClick={e => {
+            disabled={(selectedVariant?.quantity ?? 0) <= 0}
+            className={`mx-auto w-2/3 px-3 py-1.5 sm:px-0 sm:py-2 rounded text-sm lg:text-sm transition-colors ${(selectedVariant?.quantity ?? 0) > 0
+                ? "bg-[#ffc272] text-[#111213] hover:bg-[#e6aa50]"
+                : "bg-gray-500 text-gray-300 cursor-not-allowed"
+              }`}
+            onClick={(e) => {
               e.stopPropagation();
-              handleAdd();
+              if ((selectedVariant?.quantity ?? 0) > 0) {
+                handleAdd();
+              }
             }}
-            className="mx-auto  flex justify-center items-center w-2/3 px-3 py-1.5 sm:px-0 sm:py-2 bg-[#ffc272] text-[#111213] text-sm lg:text-sm rounded hover:bg-[#e6aa50] transition-colors"
           >
-            Ajouter au panier
+            {(selectedVariant?.quantity ?? 0) > 0 ? "Ajouter au panier" : "Rupture de stock"}
           </button>
-          
+
+
+
         )}
-        
+
       </div>
     </div>
   );
