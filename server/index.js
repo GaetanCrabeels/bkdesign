@@ -179,11 +179,17 @@ app.post("/create-checkout-session", async (req, res) => {
 
     if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
 
-    const items = orderData.items;
+    // 🔥 Corrige ici : parse le JSON
+    const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
+
     const shippingCost = orderData.shipping_cost || 0;
     const customerEmail = orderData.customer_email;
 
     if (!customerEmail) return res.status(400).json({ error: "Email requis" });
+
+    // Vérification
+    if (!Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ error: "Articles invalides" });
 
     const line_items = items.map((item) => {
       const promo = item.variant?.promotion || 0;
@@ -211,8 +217,8 @@ app.post("/create-checkout-session", async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items,
       mode: "payment",
+      line_items,
       customer_email: customerEmail,
       client_reference_id: orderReference,
       success_url: `${process.env.CLIENT_URL}confirm?orderReference=${orderReference}`,
