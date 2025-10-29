@@ -36,7 +36,7 @@ export default function Confirm() {
 
     const fetchOrder = async () => {
       try {
-        const res = await fetch(`/api/order/${orderReference}`);
+        const res = await fetch(`https://bkdesign.onrender.com/api/order/${orderReference}`);
         if (!res.ok) throw new Error("Commande introuvable");
 
         const data: { items: OrderItem[]; shippingCost: number } = await res.json();

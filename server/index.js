@@ -242,22 +242,42 @@ app.post("/create-checkout-session", async (req, res) => {
 app.post("/retry-checkout", async (req, res) => {
   try {
     const { orderReference, customerEmail } = req.body;
-    const order = orders[orderReference];
-    if (!order || !order.items || !customerEmail) return res.status(404).json({ error: "Commande introuvable" });
+    if (!orderReference || !customerEmail)
+      return res.status(400).json({ error: "Informations manquantes" });
 
-    const line_items = order.items.map(item => {
+    // Récupérer la commande depuis Supabase
+    const { data: orderData, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("order_reference", orderReference)
+      .single();
+
+    if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
+
+    const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
+    const shippingCost = orderData.shipping_cost || 0;
+
+    const line_items = items.map(item => {
       const promo = item.variant?.promotion || 0;
       const priceWithPromo = item.price * (1 - promo / 100);
       return {
-        price_data: { currency: "eur", product_data: { name: item.title }, unit_amount: Math.round(priceWithPromo * 100) },
-        quantity: item.qty,
+        price_data: {
+          currency: "eur",
+          product_data: { name: item.title },
+          unit_amount: Math.round(priceWithPromo * 100)
+        },
+        quantity: item.qty
       };
     });
 
-    if (order.shippingCost > 0) {
+    if (shippingCost > 0) {
       line_items.push({
-        price_data: { currency: "eur", product_data: { name: "Frais de livraison" }, unit_amount: Math.round(order.shippingCost * 100) },
-        quantity: 1,
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Frais de livraison" },
+          unit_amount: Math.round(shippingCost * 100)
+        },
+        quantity: 1
       });
     }
 
@@ -269,7 +289,10 @@ app.post("/retry-checkout", async (req, res) => {
       client_reference_id: orderReference,
       success_url: `${process.env.CLIENT_URL}confirm?orderReference=${orderReference}&customerEmail=${encodeURIComponent(customerEmail)}`,
       cancel_url: `${process.env.CLIENT_URL}error?orderReference=${orderReference}&customerEmail=${encodeURIComponent(customerEmail)}`,
-      payment_intent_data: { metadata: { bpost_order_reference: orderReference }, description: `Commande #${orderReference}` },
+      payment_intent_data: {
+        metadata: { bpost_order_reference: orderReference },
+        description: `Commande #${orderReference}`
+      }
     });
 
     res.json({ url: session.url });
