@@ -188,8 +188,8 @@ app.post("/create-checkout-session", async (req, res) => {
       mode: "payment",
       customer_email: customerEmail,
       client_reference_id: String(orderReference),
-      success_url: `${process.env.CLIENT_URL}/confirm`,
-      cancel_url: `${process.env.CLIENT_URL}/error`,
+      success_url: `${process.env.CLIENT_URL}confirm`,
+      cancel_url: `${process.env.CLIENT_URL}error`,
       payment_intent_data: {
         metadata: {
           bpost_order_reference: String(orderReference),
@@ -266,7 +266,7 @@ app.post(
             if (updateError) {
               console.error(`❌ Erreur MAJ stock pour ${item.title}`, updateError);
             } else {
-              console.log(`📉 Stock mis à jour pour ${item.title} (-${qty})`);
+              console.log(`📉 Stock mis à jour pour ${item.title} (-${qty})(${variantId})`);
             }
           }
         }
