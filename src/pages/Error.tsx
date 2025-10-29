@@ -5,10 +5,16 @@ export default function Error() {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const orderReference = searchParams.get("orderReference");
+  const customerEmail = searchParams.get("customerEmail"); // 👈 récupère email
 
   const [loading, setLoading] = useState(false);
 
   const retryPayment = async () => {
+    if (!orderReference || !customerEmail) {
+      alert("Impossible de relancer le paiement : informations manquantes");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/retry-checkout", {
@@ -16,8 +22,10 @@ export default function Error() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderReference,
+          customerEmail, // 👈 envoie au serveur
         }),
       });
+
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
@@ -43,7 +51,7 @@ export default function Error() {
           <button
             onClick={retryPayment}
             className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition disabled:opacity-50"
-            disabled={loading || !orderReference}
+            disabled={loading || !orderReference || !customerEmail}
           >
             {loading ? "Patientez..." : "Relancer le paiement"}
           </button>
