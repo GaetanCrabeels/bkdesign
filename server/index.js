@@ -137,11 +137,26 @@ app.all("/bpost/confirm", async (req, res) => {
 
 
 // Endpoint pour récupérer les frais
-app.get("/bpost/get-shipping", (req, res) => {
+app.get("/bpost/get-shipping", async (req, res) => {
   const { orderReference } = req.query;
-  const order = orders[orderReference];
-  if (!order || order.shippingCost === null) return res.status(404).json({ message: "Frais non disponibles" });
-  res.json(order);
+
+  if (!orderReference) return res.status(400).json({ error: "orderReference manquant" });
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("shipping_cost")
+    .eq("order_reference", orderReference)
+    .single();
+
+  if (error || !data) {
+    console.error("❌ Erreur récupération commande :", error);
+    return res.status(404).json({ message: "Commande introuvable" });
+  }
+
+  if (data.shipping_cost === null)
+    return res.status(404).json({ message: "Frais non disponibles" });
+
+  res.json({ shippingCost: data.shipping_cost });
 });
 
 /* -------------------------------------------------------------------------- */
