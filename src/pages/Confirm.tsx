@@ -69,7 +69,7 @@ export default function Confirm() {
         <div className="bg-white p-10 rounded-xl shadow-lg text-center">
           <h1 className="text-3xl font-bold text-red-600 mb-4">❌ Commande introuvable</h1>
           <p className="mb-6">Impossible de récupérer les détails de votre commande.</p>
-          <a href="/" className="bg-red-600 text-white px-6 py-2 rounded">
+          <a href="/e-shop/" className="bg-red-600 text-white px-6 py-2 rounded">
             Retour au panier
           </a>
         </div>
@@ -104,7 +104,7 @@ export default function Confirm() {
           </li>
         </ul>
 
-        <a href="/" className="bg-green-600 text-white px-6 py-2 rounded">
+        <a href="/e-shop/" className="bg-green-600 text-white px-6 py-2 rounded">
           Retour à l’accueil
         </a>
       </div>

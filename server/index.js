@@ -253,7 +253,9 @@ app.post("/retry-checkout", async (req, res) => {
       .single();
 
     if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
-
+    if (orderData.status === "paid") {
+    return res.status(400).json({ error: "Cette commande est déjà payée" });
+  }
     const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
     const shippingCost = orderData.shipping_cost || 0;
 
