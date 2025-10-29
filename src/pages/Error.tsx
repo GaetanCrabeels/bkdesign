@@ -35,9 +35,9 @@ export default function Error() {
   return (
     <div className="flex items-center justify-center h-screen bg-red-50">
       <div className="bg-white p-10 rounded-xl shadow-lg text-center">
-        <h1 className="text-3xl font-bold text-red-600 mb-4">❌ Erreur BPOST</h1>
+        <h1 className="text-3xl font-bold text-red-600 mb-4 font-serif">❌ Erreur</h1>
         <p className="text-gray-700 mb-6">
-          Une erreur est survenue lors de la création de la commande.
+          Une erreur est survenue lors du paiement de la commande.
         </p>
         <div className="flex justify-center gap-4">
           <button
