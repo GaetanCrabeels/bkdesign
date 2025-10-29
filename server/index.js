@@ -69,46 +69,59 @@ function generateBpostChecksum(params, passphrase) {
 }
 
 // Récupération des params pour popup BPOST
-app.post("/bpost/get-shm-params", (req, res) => {
+app.post("/bpost/get-shm-params", async (req, res) => {
   const { items, country, customerEmail } = req.body;
   const orderReference = Date.now().toString();
-  const orderWeight = items.reduce((total, item) => {
-    const weight = item.variant?.poids || 0;
-    return total + weight * item.qty;
-  }, 0);
+  const orderWeight = items.reduce((total, item) => total + (item.variant?.poids || 0) * item.qty, 0);
 
   const params = {
     accountId: String(process.env.BPOST_ACCOUNT_ID),
     action: "START",
     customerCountry: country || "BE",
-    orderReference: orderReference,
+    orderReference,
     orderWeight: String(orderWeight),
     extra: orderReference,
   };
 
   params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
 
-  orders[orderReference] = { shippingCost: null, items, customerEmail };
+  // Stockage dans Supabase
+  const { error } = await supabase.from("orders").insert({
+    order_reference: orderReference,
+    customer_email: customerEmail,
+    items: JSON.stringify(items),
+    shipping_cost: null,
+    status: "pending",
+  });
+
+  if (error) {
+    console.error("❌ Erreur création commande:", error);
+    return res.status(500).json({ error: "Impossible de créer la commande" });
+  }
 
   res.json(params);
 });
 
 // Confirmation BPOST
 // Confirmation BPOST
-app.all("/bpost/confirm", (req, res) => {
-  // On récupère tous les params envoyés par BPOST (query + body)
+app.all("/bpost/confirm", async (req, res) => {
   const { orderReference, deliveryMethodPriceTotal, customerEmail } = { ...req.query, ...req.body };
 
   if (!orderReference || !deliveryMethodPriceTotal) return res.status(400).send("Paramètres manquants");
 
-  // On initialise l'objet order si besoin
-  if (!orders[orderReference]) orders[orderReference] = { shippingCost: null, items: [] };
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      shipping_cost: Number(deliveryMethodPriceTotal) / 100,
+      customer_email: customerEmail,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("order_reference", orderReference);
 
-  // On met à jour le coût de livraison
-  orders[orderReference].shippingCost = Number(deliveryMethodPriceTotal) / 100;
-
-  // ⚡ On stocke l'email saisi dans BPOST
-  if (customerEmail) orders[orderReference].customerEmail = customerEmail;
+  if (error) {
+    console.error("❌ Erreur MAJ commande:", error);
+    return res.status(500).send("Erreur serveur");
+  }
 
   res.send(`
     <html>
@@ -141,31 +154,30 @@ app.get("/ping", (req, res) => res.json({ status: "alive", timestamp: Date.now()
 /* -------------------------------------------------------------------------- */
 app.post("/create-checkout-session", async (req, res) => {
   try {
-    const { orderReference, userId, shippingCost } = req.body;
+    const { orderReference } = req.body;
 
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("panier")
-      .eq("id", userId)
+    const { data: orderData, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("order_reference", orderReference)
       .single();
 
-    if (error) return res.status(404).json({ error: "Profil introuvable" });
+    if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
 
-    const panier = profile?.panier ? JSON.parse(profile.panier) : [];
-    const order = panier.find(p => p.orderReference === orderReference);
-    if (!order) return res.status(404).json({ error: "Commande introuvable" });
+    const items = orderData.items;
+    const shippingCost = orderData.shipping_cost || 0;
+    const customerEmail = orderData.customer_email;
 
-    const customerEmail = order.customerEmail;
     if (!customerEmail) return res.status(400).json({ error: "Email requis" });
 
-    const line_items = order.map(item => {
+    const line_items = items.map((item) => {
       const promo = item.variant?.promotion || 0;
       const priceWithPromo = item.price * (1 - promo / 100);
       return {
         price_data: {
           currency: "eur",
           product_data: { name: item.title },
-          unit_amount: Math.round(priceWithPromo * 100)
+          unit_amount: Math.round(priceWithPromo * 100),
         },
         quantity: item.qty,
       };
@@ -176,7 +188,7 @@ app.post("/create-checkout-session", async (req, res) => {
         price_data: {
           currency: "eur",
           product_data: { name: "Frais de livraison" },
-          unit_amount: Math.round(shippingCost * 100)
+          unit_amount: Math.round(shippingCost * 100),
         },
         quantity: 1,
       });
@@ -202,7 +214,6 @@ app.post("/create-checkout-session", async (req, res) => {
     res.status(500).json({ error: "Impossible de créer la session Stripe" });
   }
 });
-
 
 
 
