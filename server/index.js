@@ -204,6 +204,61 @@ app.post("/create-checkout-session", async (req, res) => {
     res.status(500).json({ error: "Erreur lors de la création de la session Stripe" });
   }
 });
+// Endpoint pour relancer le checkout en cas d'erreur
+app.post("/retry-checkout", async (req, res) => {
+  try {
+    const { orderReference, customerEmail } = req.body;
+    const order = orders[orderReference];
+
+    if (!order) {
+      return res.status(404).json({ error: "Commande introuvable" });
+    }
+
+    const line_items = order.items.map((item) => {
+      const promo = item.variant?.promotion || 0;
+      const priceWithPromo = item.price * (1 - promo / 100);
+      return {
+        price_data: {
+          currency: "eur",
+          product_data: { name: item.title },
+          unit_amount: Math.round(priceWithPromo * 100),
+        },
+        quantity: item.qty,
+      };
+    });
+
+    if (order.shippingCost > 0) {
+      line_items.push({
+        price_data: {
+          currency: "eur",
+          product_data: { name: "Frais de livraison" },
+          unit_amount: Math.round(order.shippingCost * 100),
+        },
+        quantity: 1,
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items,
+      mode: "payment",
+      customer_email: customerEmail,
+      client_reference_id: String(orderReference),
+      success_url: `${process.env.CLIENT_URL}confirm?orderReference=${orderReference}`,
+      cancel_url: `${process.env.CLIENT_URL}error?orderReference=${orderReference}`,
+      payment_intent_data: {
+        metadata: { bpost_order_reference: String(orderReference) },
+        description: `Commande #${orderReference}`,
+      },
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error("❌ Retry checkout error:", err);
+    res.status(500).json({ error: "Impossible de relancer le paiement" });
+  }
+});
+
 
 /* -------------------------------------------------------------------------- */
 /*                               STRIPE WEBHOOK                               */

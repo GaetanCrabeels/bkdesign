@@ -61,7 +61,10 @@ export function useCart() {
 
     initCart();
   }, []);
-
+  const clearLocalCart = () => {
+    setCart([]);
+    localStorage.removeItem("cart");
+  };
   // --- Fonction pour mettre à jour le panier
   const updateCart = async (newCart: CartItem[]) => {
     setCart(newCart);
@@ -126,7 +129,8 @@ export function useCart() {
     removeFromCart,
     setItemQty,
     updateCart,
-    clearCart,  // 👈 nouvelle méthode
+    clearCart,      // Vide panier + DB si connecté
+    clearLocalCart, // Vide seulement le panier local
     user
   };
 }

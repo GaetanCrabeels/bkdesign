@@ -4,28 +4,25 @@ import Produits from "./pages/Products";
 import Confirm from "./pages/Confirm";
 import Error from "./pages/Error";
 import ProductPage from './components/ProductPage';
+import { CartProvider } from './components/CartContext';
 
 function RedirectTo404() {
-  // redirection externe vers WP
   window.location.href = "https://bkdesign.be/404";
   return null;
 }
 
 export default function App() {
   return (
-
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/produits" element={<Produits />} />
-      <Route path="/produits/:subcategory" element={<Produits />} />
-      <Route path="/confirm" element={<Confirm />} />
-      ;<Route path="/produit/:id" element={<ProductPage />} />
-
-      <Route path="/error" element={<Error />} />
-      {/* catch-all vers WP */}
-      <Route path="*" element={<RedirectTo404 />} />
-
-    </Routes>
-
+    <CartProvider>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/produits" element={<Produits />} />
+        <Route path="/produits/:subcategory" element={<Produits />} />
+        <Route path="/confirm" element={<Confirm />} />
+        <Route path="/produit/:id" element={<ProductPage />} />
+        <Route path="/error" element={<Error />} />
+        <Route path="*" element={<RedirectTo404 />} />
+      </Routes>
+    </CartProvider>
   );
 }
