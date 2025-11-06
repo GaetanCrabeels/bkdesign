@@ -13,6 +13,16 @@ const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
 const app = express();
 app.use(cors());
 
+// 🔍 Middleware global pour journaliser toutes les requêtes
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n🟢 [${timestamp}] ${req.method} ${req.originalUrl} depuis ${req.ip}`);
+  if (req.method !== "GET") {
+    console.log("📦 Corps reçu:", JSON.stringify(req.body || {}, null, 2));
+  }
+  next();
+});
+
 // ⚠️ Ne pas utiliser express.json() globalement pour webhook Stripe
 app.use((req, res, next) => {
   if (req.originalUrl === "/stripe/webhook") next();
@@ -59,41 +69,54 @@ function generateBpostChecksum(params, passphrase) {
 }
 
 app.post("/bpost/get-shm-params", async (req, res) => {
-  const { items, country, customerEmail } = req.body;
-  const orderReference = Date.now().toString();
-  const orderWeight = items.reduce((total, item) => total + (item.variant?.poids || 0) * item.qty, 0);
+  try {
+    console.log("🚚 Requête reçue sur /bpost/get-shm-params :", req.body);
+    const { items, country, customerEmail } = req.body;
+    const orderReference = Date.now().toString();
+    const orderWeight = items.reduce((total, item) => total + (item.variant?.poids || 0) * item.qty, 0);
 
-  const params = {
-    accountId: String(process.env.BPOST_ACCOUNT_ID),
-    action: "START",
-    customerCountry: country || "BE",
-    orderReference,
-    orderWeight: String(orderWeight),
-    extra: orderReference,
-  };
+    const params = {
+      accountId: String(process.env.BPOST_ACCOUNT_ID),
+      action: "START",
+      customerCountry: country || "BE",
+      orderReference,
+      orderWeight: String(orderWeight),
+      extra: orderReference,
+    };
 
-  params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
+    params.checksum = generateBpostChecksum(params, process.env.BPOST_PASSPHRASE || "cafe7283dc");
 
-  const { error } = await supabase.from("orders").insert({
-    order_reference: orderReference,
-    customer_email: customerEmail,
-    items: JSON.stringify(items),
-    shipping_cost: null,
-    status: "pending",
-  });
+    console.log("📦 Tentative d'insertion commande Supabase :", { orderReference, customerEmail });
 
-  if (error) {
-    console.error("❌ Erreur création commande:", error);
-    return res.status(500).json({ error: "Impossible de créer la commande" });
+    const { data, error } = await supabase.from("orders").insert({
+      order_reference: orderReference,
+      customer_email: customerEmail,
+      items: JSON.stringify(items),
+      shipping_cost: null,
+      status: "pending",
+    }).select();
+
+    if (error) {
+      console.error("❌ Erreur création commande:", error);
+      return res.status(500).json({ error: "Impossible de créer la commande" });
+    }
+
+    console.log("✅ Commande enregistrée avec succès :", data);
+    res.json(params);
+  } catch (err) {
+    console.error("🔥 Erreur interne /bpost/get-shm-params :", err);
+    res.status(500).json({ error: "Erreur interne serveur" });
   }
-
-  res.json(params);
 });
 
 app.all("/bpost/confirm", async (req, res) => {
+  console.log("📬 Confirmation BPOST reçue :", { query: req.query, body: req.body });
   const { orderReference, deliveryMethodPriceTotal, customerEmail } = { ...req.query, ...req.body };
 
-  if (!orderReference || !deliveryMethodPriceTotal) return res.status(400).send("Paramètres manquants");
+  if (!orderReference || !deliveryMethodPriceTotal) {
+    console.error("❌ Paramètres manquants dans /bpost/confirm");
+    return res.status(400).send("Paramètres manquants");
+  }
 
   const { error } = await supabase
     .from("orders")
@@ -109,6 +132,8 @@ app.all("/bpost/confirm", async (req, res) => {
     return res.status(500).send("Erreur serveur");
   }
 
+  console.log(`✅ Commande ${orderReference} mise à jour avec frais de livraison ${deliveryMethodPriceTotal / 100}€`);
+
   res.send(`
     <html>
       <head><title>Livraison confirmée</title></head>
@@ -121,131 +146,13 @@ app.all("/bpost/confirm", async (req, res) => {
   `);
 });
 
-app.get("/bpost/get-shipping", async (req, res) => {
-  const { orderReference } = req.query;
-  if (!orderReference) return res.status(400).json({ error: "orderReference manquant" });
-
-  const { data, error } = await supabase.from("orders").select("shipping_cost").eq("order_reference", orderReference).single();
-  if (error || !data) return res.status(404).json({ message: "Commande introuvable" });
-  if (data.shipping_cost === null) return res.status(404).json({ message: "Frais non disponibles" });
-
-  res.json({ shippingCost: data.shipping_cost });
-});
-
 /* -------------------------------------------------------------------------- */
-/*                                    Ping                                    */
-/* -------------------------------------------------------------------------- */
-app.get("/ping", (req, res) => res.json({ status: "alive", timestamp: Date.now() }));
-
-/* -------------------------------------------------------------------------- */
-/*                               STRIPE CHECKOUT                              */
-/* -------------------------------------------------------------------------- */
-function computeLineItems(items, shippingCost) {
-  // Total articles
-  const itemsTotal = items.reduce((acc, item) => acc + item.price * (1 - (item.variant?.promotion || 0) / 100) * item.qty, 0);
-  const finalShippingCost = itemsTotal > 75 ? 0 : shippingCost;
-
-  const line_items = items.map(item => {
-    const promo = item.variant?.promotion || 0;
-    const priceWithPromo = item.price * (1 - promo / 100);
-    return {
-      price_data: {
-        currency: "eur",
-        product_data: { name: item.title },
-        unit_amount: Math.round(priceWithPromo * 100)
-      },
-      quantity: item.qty
-    };
-  });
-
-  if (finalShippingCost > 0) {
-    line_items.push({
-      price_data: {
-        currency: "eur",
-        product_data: { name: "Frais de livraison" },
-        unit_amount: Math.round(finalShippingCost * 100)
-      },
-      quantity: 1
-    });
-  }
-
-  return line_items;
-}
-
-app.post("/create-checkout-session", async (req, res) => {
-  try {
-    const { orderReference } = req.body;
-    const { data: orderData, error } = await supabase.from("orders").select("*").eq("order_reference", orderReference).single();
-    if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
-
-    const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
-    const shippingCost = orderData.shipping_cost || 0;
-    const customerEmail = orderData.customer_email;
-    if (!customerEmail) return res.status(400).json({ error: "Email requis" });
-
-    const line_items = computeLineItems(items, shippingCost);
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items,
-      customer_email: customerEmail,
-      client_reference_id: orderReference,
-      success_url: `${process.env.CLIENT_URL}confirm?orderReference=${orderReference}`,
-      cancel_url: `${process.env.CLIENT_URL}error?orderReference=${orderReference}`,
-      payment_intent_data: {
-        metadata: { bpost_order_reference: orderReference },
-        description: `Commande #${orderReference}`
-      }
-    });
-
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error("❌ Stripe checkout error:", err);
-    res.status(500).json({ error: "Impossible de créer la session Stripe" });
-  }
-});
-
-app.post("/retry-checkout", async (req, res) => {
-  try {
-    const { orderReference, customerEmail } = req.body;
-    if (!orderReference || !customerEmail) return res.status(400).json({ error: "Informations manquantes" });
-
-    const { data: orderData, error } = await supabase.from("orders").select("*").eq("order_reference", orderReference).single();
-    if (error || !orderData) return res.status(404).json({ error: "Commande introuvable" });
-    if (orderData.status === "paid") return res.status(400).json({ error: "Cette commande est déjà payée" });
-
-    const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
-    const shippingCost = orderData.shipping_cost || 0;
-    const line_items = computeLineItems(items, shippingCost);
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items,
-      mode: "payment",
-      customer_email: customerEmail,
-      client_reference_id: orderReference,
-      success_url: `${process.env.CLIENT_URL}confirm?orderReference=${orderReference}&customerEmail=${encodeURIComponent(customerEmail)}`,
-      cancel_url: `${process.env.CLIENT_URL}error?orderReference=${orderReference}&customerEmail=${encodeURIComponent(customerEmail)}`,
-      payment_intent_data: {
-        metadata: { bpost_order_reference: orderReference },
-        description: `Commande #${orderReference}`
-      }
-    });
-
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error("❌ Retry checkout error:", err);
-    res.status(500).json({ error: "Impossible de relancer le paiement" });
-  }
-});
-
-/* -------------------------------------------------------------------------- */
-/*                               STRIPE WEBHOOK                               */
+/*                              STRIPE WEBHOOK LOGS                           */
 /* -------------------------------------------------------------------------- */
 app.post("/stripe/webhook", bodyParser.raw({ type: "application/json" }), async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
+  console.log("💳 Webhook Stripe reçu");
 
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
@@ -254,58 +161,43 @@ app.post("/stripe/webhook", bodyParser.raw({ type: "application/json" }), async 
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log("📨 Événement Stripe :", event.type);
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const orderReference = session.client_reference_id;
 
     console.log("✅ Paiement confirmé pour la commande :", orderReference);
 
-    const { data: orderData, error: orderError } = await supabase.from("orders").select("items").eq("order_reference", orderReference).single();
-    if (orderError || !orderData) return res.status(404).send("Commande introuvable");
+    try {
+      const { data: orderData, error: orderError } = await supabase.from("orders").select("items").eq("order_reference", orderReference).single();
+      if (orderError || !orderData) {
+        console.error("❌ Commande introuvable dans Supabase :", orderReference);
+        return res.status(404).send("Commande introuvable");
+      }
 
-    const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
+      const items = typeof orderData.items === "string" ? JSON.parse(orderData.items) : orderData.items;
+      for (const item of items) {
+        const variantId = item.variant?.id;
+        const qty = item.qty;
+        if (!variantId || !qty) continue;
 
-    for (const item of items) {
-      const variantId = item.variant?.id;
-      const qty = item.qty;
-      if (!variantId || !qty) continue;
+        const { data: variant, error: fetchError } = await supabase.from("product_variants").select("quantity").eq("id", variantId).single();
+        if (fetchError || !variant) continue;
 
-      const { data: variant, error: fetchError } = await supabase.from("product_variants").select("quantity").eq("id", variantId).single();
-      if (fetchError || !variant) continue;
+        const newQty = Math.max(variant.quantity - qty, 0);
+        await supabase.from("product_variants").update({ quantity: newQty }).eq("id", variantId);
+        console.log(`🛠️ Stock mis à jour pour variant ${variantId} : -${qty}, nouveau stock = ${newQty}`);
+      }
 
-      const newQty = Math.max(variant.quantity - qty, 0);
-      await supabase.from("product_variants").update({ quantity: newQty }).eq("id", variantId);
+      await supabase.from("orders").update({ status: "paid", updated_at: new Date().toISOString() }).eq("order_reference", orderReference);
+      console.log("💾 Statut commande mis à jour : paid");
+    } catch (err) {
+      console.error("🔥 Erreur traitement Stripe Webhook :", err);
     }
-
-    await supabase.from("orders").update({ status: "paid", updated_at: new Date().toISOString() }).eq("order_reference", orderReference);
   }
 
   res.json({ received: true });
-});
-
-/* -------------------------------------------------------------------------- */
-/*                            GET ORDER (pour Confirm)                        */
-/* -------------------------------------------------------------------------- */
-app.get("/api/order/:orderReference", async (req, res) => {
-  const { orderReference } = req.params;
-
-  const { data, error } = await supabase.from("orders").select("*").eq("order_reference", orderReference).single();
-  if (error || !data) return res.status(404).json({ message: "Commande introuvable" });
-
-  const items = typeof data.items === "string" ? JSON.parse(data.items) : data.items;
-
-  const itemsTotal = items.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const shippingCost = itemsTotal > 75 ? 0 : (data.shipping_cost || 0);
-  const total = itemsTotal + shippingCost;
-
-  res.json({
-    orderReference: data.order_reference,
-    email: data.customer_email,
-    items,
-    shippingCost,
-    total,
-    status: data.status,
-  });
 });
 
 /* -------------------------------------------------------------------------- */
